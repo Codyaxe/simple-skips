@@ -1,0 +1,77 @@
+\documentclass{article}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+\begin{document}
+
+%% --- Bad Character Table ---
+\setcounter{algocf}{3}
+\begin{algorithm}[H]
+\caption{Boyer-Moore Bad Character Table}
+\KwIn{Pattern $P[1 \mathinner{..} m]$, Alphabet $\Sigma$}
+\KwOut{Bad character table $\textit{bc}[c]$ for each $c \in \Sigma$}
+
+\ForEach{$c \in \Sigma$}{
+    $\textit{bc}[c] \leftarrow -1$\;
+}
+\For{$i \leftarrow 1$ \KwTo $m$}{
+    $\textit{bc}[P[i]] \leftarrow i$\;
+}
+
+\Return{$\textit{bc}$}\;
+\end{algorithm}
+
+\vspace{1em}
+
+%% --- Good Suffix Table ---
+\begin{algorithm}[H]
+\caption{Boyer-Moore Good Suffix Table}
+\KwIn{Pattern $P[1 \mathinner{..} m]$}
+\KwOut{Good suffix table $\textit{gs}[1 \mathinner{..} m]$}
+
+\For{$i \leftarrow 1$ \KwTo $m$}{
+    $\textit{gs}[i] \leftarrow m$\;
+}
+
+$j \leftarrow 0$\;
+\For{$i \leftarrow m - 1$ \KwTo $0$}{
+    \While{$j > 0$ \textbf{and} $P[m - j] \neq P[i]$}{
+        $j \leftarrow \textit{gs}[m - j]$\;
+    }
+    \If{$P[m - j] = P[i]$}{
+        $j \leftarrow j + 1$\;
+    }
+    $\textit{gs}[i] \leftarrow m - j$\;
+}
+
+\Return{$\textit{gs}$}\;
+\end{algorithm}
+
+\vspace{1em}
+
+%% --- Boyer-Moore Matcher ---
+\begin{algorithm}[H]
+\caption{Boyer-Moore Matcher}
+\KwIn{Text $T[1 \mathinner{..} n]$, Pattern $P[1 \mathinner{..} m]$}
+\KwOut{All indices where $P$ occurs in $T$}
+
+$\textit{bc} \leftarrow \textsc{Bad-Character-Table}(P)$\;
+$\textit{gs} \leftarrow \textsc{Good-Suffix-Table}(P)$\;
+$s \leftarrow 1$
+
+\While{$s \leq n - m + 1$}{
+    $j \leftarrow m$ 
+    \While{$j \geq 1$ \textbf{and} $P[j] = T[s + j - 1]$}{
+        $j \leftarrow j - 1$\;
+    }
+    \eIf{$j = 0$}{
+        \textbf{print} ``Pattern occurs at shift $s$''\;
+        $s \leftarrow s + \textit{gs}[0]$\;
+    }{
+        $\textit{bcShift} \leftarrow j - \textit{bc}[T[s + j - 1]]$\;
+        $\textit{gsShift} \leftarrow \textit{gs}[j]$\;
+        $s \leftarrow s + \max(\textit{bcShift},\ \textit{gsShift})$\;
+    }
+}
+\end{algorithm}
+
+\end{document}

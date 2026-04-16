@@ -1,0 +1,54 @@
+\documentclass{article}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+\begin{document}
+
+%% --- Failure Function (Prefix Table) ---
+\setcounter{algocf}{1}
+\begin{algorithm}[H]
+\caption{KMP Failure Function (Prefix Table)}
+\KwIn{Pattern $P[1 \mathinner{..} m]$}
+\KwOut{Failure function $\pi[1 \mathinner{..} m]$}
+
+$\pi[1] \leftarrow 0$\;
+$k \leftarrow 0$\;
+
+\For{$q \leftarrow 2$ \KwTo $m$}{
+    \While{$k > 0$ \textbf{and} $P[k+1] \neq P[q]$}{
+        $k \leftarrow \pi[k]$\;
+    }
+    \If{$P[k+1] = P[q]$}{
+        $k \leftarrow k + 1$\;
+    }
+    $\pi[q] \leftarrow k$\;
+}
+
+\Return{$\pi$}\;
+\end{algorithm}
+
+\vspace{1em}
+
+%% --- KMP Matcher ---
+\begin{algorithm}[H]
+\caption{Knuth-Morris-Pratt (KMP) Matcher}
+\KwIn{Text $T[1 \mathinner{..} n]$, Pattern $P[1 \mathinner{..} m]$}
+\KwOut{All indices where $P$ occurs in $T$}
+
+$\pi \leftarrow \textsc{KMP-Failure-Function}(P)$\;
+$q \leftarrow 0$ 
+
+\For{$i \leftarrow 1$ \KwTo $n$}{
+    \While{$q > 0$ \textbf{and} $P[q+1] \neq T[i]$}{
+        $q \leftarrow \pi[q]$ 
+    }
+    \If{$P[q+1] = T[i]$}{
+        $q \leftarrow q + 1$\;
+    }
+    \If{$q = m$}{
+        \textbf{print} ``Pattern occurs at shift $i - m$''\;
+        $q \leftarrow \pi[q]$ 
+    }
+}
+\end{algorithm}
+
+\end{document}

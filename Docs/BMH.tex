@@ -1,0 +1,46 @@
+\documentclass{article}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+\begin{document}
+
+%% --- BMH Shift Table ---
+\setcounter{algocf}{6}
+\begin{algorithm}[H]
+\caption{BMH Shift Table}
+\KwIn{Pattern $P[1 \mathinner{..} m]$, Alphabet $\Sigma$}
+\KwOut{Shift table $\textit{shift}[c]$ for each $c \in \Sigma$}
+
+\ForEach{$c \in \Sigma$}{
+    $\textit{shift}[c] \leftarrow m$\;
+}
+\For{$i \leftarrow 1$ \KwTo $m - 1$}{
+    $\textit{shift}[P[i]] \leftarrow m - i$\;
+}
+
+\Return{$\textit{shift}$}\;
+\end{algorithm}
+
+\vspace{1em}
+
+%% --- BMH Matcher ---
+\begin{algorithm}[H]
+\caption{Boyer-Moore-Horspool (BMH) Matcher}
+\KwIn{Text $T[1 \mathinner{..} n]$, Pattern $P[1 \mathinner{..} m]$}
+\KwOut{All indices where $P$ occurs in $T$}
+
+$\textit{shift} \leftarrow \textsc{BMH-Shift-Table}(P)$\;
+$s \leftarrow 1$ 
+
+\While{$s \leq n - m + 1$}{
+    $j \leftarrow m$ 
+    \While{$j \geq 1$ \textbf{and} $P[j] = T[s + j - 1]$}{
+        $j \leftarrow j - 1$\;
+    }
+    \If{$j = 0$}{
+        \textbf{print} ``Pattern occurs at shift $s$''\;
+    }
+    $s \leftarrow s + \textit{shift}[T[s + m - 1]]$ 
+}
+\end{algorithm}
+
+\end{document}

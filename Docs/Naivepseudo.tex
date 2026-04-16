@@ -1,0 +1,22 @@
+\documentclass{article}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+
+\begin{document}
+
+\begin{algorithm}[H]
+\caption{Naive String Search}
+\KwIn{Text $T[1 \mathinner{..} n]$, Pattern $P[1 \mathinner{..} m]$}
+\KwOut{All indices where $P$ occurs in $T$}
+
+\For{$i \leftarrow 1$ \KwTo $n - m + 1$}{
+    $j \leftarrow 1$\;
+    \While{$j \leq m$ \textbf{and} $T[i + j - 1] = P[j]$}{
+        $j \leftarrow j + 1$\;
+    }
+    \If{$j > m$}{
+        \textbf{print} ``Pattern found at index $i$''\;
+    }
+}
+\end{algorithm}
+
+\end{document}
