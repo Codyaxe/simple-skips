@@ -38,31 +38,20 @@ class BMHTextEditor(tk.Tk):
         self.step_var = tk.StringVar(value="Step 0/0")
         self.full_scan_var = tk.BooleanVar(value=False)
         self.animation_delay_var = tk.IntVar(value=400)
+        self.dark_mode_var = tk.BooleanVar(value=False)
+        self.show_visualization_var = tk.BooleanVar(value=True)
+        self.style = ttk.Style(self)
 
         self._build_ui()
+        self._build_menu()
+        self._apply_theme()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self) -> None:
-        container = ttk.Frame(self, padding=10)
-        container.pack(fill=tk.BOTH, expand=True)
+        self.container = ttk.Frame(self, padding=10)
+        self.container.pack(fill=tk.BOTH, expand=True)
 
-        file_row = ttk.Frame(container)
-        file_row.pack(fill=tk.X, pady=(0, 8))
-
-        ttk.Button(file_row, text="New", command=self.new_file).pack(
-            side=tk.LEFT, padx=(0, 6)
-        )
-        ttk.Button(file_row, text="Open", command=self.open_file).pack(
-            side=tk.LEFT, padx=(0, 6)
-        )
-        ttk.Button(file_row, text="Save", command=self.save_file).pack(
-            side=tk.LEFT, padx=(0, 6)
-        )
-        ttk.Button(file_row, text="Save As", command=self.save_as_file).pack(
-            side=tk.LEFT
-        )
-
-        search_row = ttk.Frame(container)
+        search_row = ttk.Frame(self.container)
         search_row.pack(fill=tk.X, pady=(0, 8))
 
         ttk.Label(search_row, text="Find").pack(side=tk.LEFT)
@@ -91,27 +80,45 @@ class BMHTextEditor(tk.Tk):
             side=tk.LEFT
         )
 
-        split = ttk.Panedwindow(container, orient=tk.HORIZONTAL)
-        split.pack(fill=tk.BOTH, expand=True)
+        self.split = ttk.Panedwindow(self.container, orient=tk.HORIZONTAL)
+        self.split.pack(fill=tk.BOTH, expand=True)
 
-        editor_frame = ttk.Frame(split)
-        split.add(editor_frame, weight=3)
+        self.editor_frame = ttk.Frame(self.split)
+        self.split.add(self.editor_frame, weight=3)
 
         self.editor = tk.Text(
-            editor_frame, wrap=tk.NONE, undo=True, font=("Consolas", 11)
+            self.editor_frame, wrap=tk.NONE, undo=True, font=("Consolas", 11)
         )
         self.editor.grid(row=0, column=0, sticky="nsew")
 
-        y_scroll = ttk.Scrollbar(
-            editor_frame, orient=tk.VERTICAL, command=self.editor.yview
+        self.editor_y_scroll = tk.Scrollbar(
+            self.editor_frame,
+            orient=tk.VERTICAL,
+            command=self.editor.yview,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            width=10,
+            activerelief=tk.FLAT,
         )
-        y_scroll.grid(row=0, column=1, sticky="ns")
-        x_scroll = ttk.Scrollbar(
-            editor_frame, orient=tk.HORIZONTAL, command=self.editor.xview
-        )
-        x_scroll.grid(row=1, column=0, sticky="ew")
+        self.editor_y_scroll.grid(row=0, column=1, sticky="ns")
 
-        self.editor.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        self.editor_x_scroll = tk.Scrollbar(
+            self.editor_frame,
+            orient=tk.HORIZONTAL,
+            command=self.editor.xview,
+            relief=tk.FLAT,
+            bd=0,
+            highlightthickness=0,
+            width=10,
+            activerelief=tk.FLAT,
+        )
+        self.editor_x_scroll.grid(row=1, column=0, sticky="ew")
+
+        self.editor.configure(
+            yscrollcommand=self.editor_y_scroll.set,
+            xscrollcommand=self.editor_x_scroll.set,
+        )
         self.editor.tag_configure("match", background="#ffe8a3")
         self.editor.tag_configure("current_match", background="#ffbe55")
         self.editor.tag_configure("trace_align", background="#dbeafe")
@@ -119,13 +126,13 @@ class BMHTextEditor(tk.Tk):
         self.editor.tag_configure("trace_mismatch", background="#fecaca")
         self.editor.bind("<<Modified>>", self._on_text_modified)
 
-        editor_frame.rowconfigure(0, weight=1)
-        editor_frame.columnconfigure(0, weight=1)
+        self.editor_frame.rowconfigure(0, weight=1)
+        self.editor_frame.columnconfigure(0, weight=1)
 
-        viz_frame = ttk.LabelFrame(split, text="BMH Visualization", padding=8)
-        split.add(viz_frame, weight=2)
+        self.viz_frame = ttk.LabelFrame(self.split, text="BMH Visualization", padding=8)
+        self.split.add(self.viz_frame, weight=2)
 
-        viz_controls = ttk.Frame(viz_frame)
+        viz_controls = ttk.Frame(self.viz_frame)
         viz_controls.pack(fill=tk.X, pady=(0, 8))
 
         ttk.Checkbutton(
@@ -158,10 +165,12 @@ class BMHTextEditor(tk.Tk):
             width=6,
         ).pack(side=tk.LEFT)
 
-        ttk.Label(viz_frame, textvariable=self.step_var).pack(anchor="w", pady=(0, 6))
+        ttk.Label(self.viz_frame, textvariable=self.step_var).pack(
+            anchor="w", pady=(0, 6)
+        )
 
         self.visual_text = tk.Text(
-            viz_frame, height=16, wrap=tk.NONE, font=("Consolas", 10)
+            self.viz_frame, height=16, wrap=tk.NONE, font=("Consolas", 10)
         )
         self.visual_text.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
         self.visual_text.tag_configure("viz_align", background="#e8eefc")
@@ -175,17 +184,282 @@ class BMHTextEditor(tk.Tk):
         self.visual_text.tag_configure("viz_result_mismatch", foreground="#991b1b")
         self.visual_text.configure(state=tk.DISABLED)
 
-        ttk.Label(viz_frame, text="Skip Table").pack(anchor="w")
+        ttk.Label(self.viz_frame, text="Skip Table").pack(anchor="w")
         self.skip_text = tk.Text(
-            viz_frame, height=8, wrap=tk.WORD, font=("Consolas", 10)
+            self.viz_frame, height=8, wrap=tk.WORD, font=("Consolas", 10)
         )
         self.skip_text.pack(fill=tk.X)
         self.skip_text.configure(state=tk.DISABLED)
 
-        status = ttk.Label(
-            container, textvariable=self.status_var, anchor="w", relief=tk.SUNKEN
+        self.status_label = ttk.Label(
+            self.container, textvariable=self.status_var, anchor="w", relief=tk.SUNKEN
         )
-        status.pack(fill=tk.X, pady=(8, 0))
+        self.status_label.pack(fill=tk.X, pady=(8, 0))
+
+    def _build_menu(self) -> None:
+        self.menu_bar = tk.Menu(self, tearoff=False)
+
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.file_menu.add_command(
+            label="New",
+            accelerator="Ctrl+N",
+            command=self.new_file,
+        )
+        self.file_menu.add_command(
+            label="Open",
+            accelerator="Ctrl+O",
+            command=self.open_file,
+        )
+        self.file_menu.add_command(
+            label="Save",
+            accelerator="Ctrl+S",
+            command=self.save_file,
+        )
+        self.file_menu.add_command(
+            label="Save As",
+            accelerator="Ctrl+Shift+S",
+            command=self.save_as_file,
+        )
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Exit", command=self._on_close)
+
+        self.view_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.view_menu.add_checkbutton(
+            label="Dark Mode",
+            variable=self.dark_mode_var,
+            command=self.toggle_dark_mode,
+        )
+        self.view_menu.add_checkbutton(
+            label="Show Visualization",
+            variable=self.show_visualization_var,
+            command=self.toggle_visualization,
+        )
+
+        self.menu_bar.add_cascade(label="File", menu=self.file_menu)
+        self.menu_bar.add_cascade(label="View", menu=self.view_menu)
+        self.config(menu=self.menu_bar)
+
+        self._bind_shortcuts()
+
+    def _bind_shortcuts(self) -> None:
+        self.bind_all("<Control-n>", self._on_shortcut_new)
+        self.bind_all("<Control-o>", self._on_shortcut_open)
+        self.bind_all("<Control-s>", self._on_shortcut_save)
+        self.bind_all("<Control-S>", self._on_shortcut_save_as)
+
+    def _on_shortcut_new(self, _event: tk.Event) -> str:
+        self.new_file()
+        return "break"
+
+    def _on_shortcut_open(self, _event: tk.Event) -> str:
+        self.open_file()
+        return "break"
+
+    def _on_shortcut_save(self, _event: tk.Event) -> str:
+        self.save_file()
+        return "break"
+
+    def _on_shortcut_save_as(self, _event: tk.Event) -> str:
+        self.save_as_file()
+        return "break"
+
+    def toggle_dark_mode(self) -> None:
+        self._apply_theme()
+
+    def toggle_visualization(self) -> None:
+        if self.show_visualization_var.get():
+            if str(self.viz_frame) not in self.split.panes():
+                self.split.add(self.viz_frame, weight=2)
+        else:
+            if str(self.viz_frame) in self.split.panes():
+                self._cancel_animation()
+                self.split.forget(self.viz_frame)
+
+    def _apply_theme(self) -> None:
+        dark = self.dark_mode_var.get()
+        self.style.theme_use("clam")
+
+        if dark:
+            colors = {
+                "bg": "#1e1e1e",
+                "panel": "#252526",
+                "fg": "#e8e8e8",
+                "muted": "#bcbcbc",
+                "active": "#303033",
+                "border": "#3c3c3c",
+                "text_bg": "#1b1b1b",
+                "text_fg": "#f2f2f2",
+                "insert": "#f2f2f2",
+                "select_bg": "#264f78",
+                "select_fg": "#ffffff",
+                "scroll_bg": "#343434",
+                "scroll_trough": "#1e1e1e",
+                "scroll_active": "#4a4a4a",
+            }
+        else:
+            colors = {
+                "bg": "#f5f5f5",
+                "panel": "#ffffff",
+                "fg": "#1f1f1f",
+                "muted": "#666666",
+                "active": "#e7eef8",
+                "border": "#cfcfcf",
+                "text_bg": "#ffffff",
+                "text_fg": "#000000",
+                "insert": "#000000",
+                "select_bg": "#cfe3ff",
+                "select_fg": "#000000",
+                "scroll_bg": "#c9ced8",
+                "scroll_trough": "#eff2f7",
+                "scroll_active": "#b1bfda",
+            }
+
+        self.configure(bg=colors["bg"])
+
+        self.style.configure(
+            ".",
+            background=colors["bg"],
+            foreground=colors["fg"],
+            fieldbackground=colors["panel"],
+            bordercolor=colors["border"],
+        )
+        self.style.configure("TFrame", background=colors["bg"])
+        self.style.configure("TLabel", background=colors["bg"], foreground=colors["fg"])
+        self.style.configure(
+            "TButton", background=colors["panel"], foreground=colors["fg"]
+        )
+        self.style.configure(
+            "TCheckbutton",
+            background=colors["bg"],
+            foreground=colors["fg"],
+        )
+        self.style.configure(
+            "TLabelframe",
+            background=colors["bg"],
+            foreground=colors["fg"],
+            bordercolor=colors["border"],
+        )
+        self.style.configure(
+            "TLabelframe.Label",
+            background=colors["bg"],
+            foreground=colors["fg"],
+        )
+        self.style.configure(
+            "TEntry",
+            fieldbackground=colors["panel"],
+            foreground=colors["fg"],
+        )
+        self.style.configure(
+            "TSpinbox",
+            fieldbackground=colors["panel"],
+            foreground=colors["fg"],
+        )
+        self.style.configure(
+            "Status.TLabel",
+            background=colors["panel"],
+            foreground=colors["fg"],
+        )
+        self.status_label.configure(style="Status.TLabel")
+
+        self.style.map(
+            "TButton",
+            background=[("active", colors["active"])],
+            foreground=[("disabled", colors["muted"])],
+        )
+        self.style.map(
+            "TCheckbutton",
+            background=[("active", colors["bg"])],
+            foreground=[("disabled", colors["muted"])],
+        )
+
+        for menu in (self.menu_bar, self.file_menu, self.view_menu):
+            menu.configure(
+                background=colors["panel"],
+                foreground=colors["fg"],
+                activebackground=colors["active"],
+                activeforeground=colors["fg"],
+                borderwidth=1,
+            )
+
+        for widget in (self.editor, self.visual_text, self.skip_text):
+            widget.configure(
+                background=colors["text_bg"],
+                foreground=colors["text_fg"],
+                insertbackground=colors["insert"],
+                selectbackground=colors["select_bg"],
+                selectforeground=colors["select_fg"],
+            )
+
+        for bar in (self.editor_y_scroll, self.editor_x_scroll):
+            bar.configure(
+                background=colors["scroll_bg"],
+                troughcolor=colors["scroll_trough"],
+                activebackground=colors["scroll_active"],
+                relief=tk.FLAT,
+                bd=0,
+                highlightthickness=0,
+                highlightbackground=colors["scroll_trough"],
+            )
+
+        self._configure_highlight_tags(dark)
+
+    def _configure_highlight_tags(self, dark: bool) -> None:
+        if dark:
+            self.editor.tag_configure(
+                "match", background="#6f5a12", foreground="#fff2bf"
+            )
+            self.editor.tag_configure(
+                "current_match", background="#a06c00", foreground="#fff2bf"
+            )
+            self.editor.tag_configure(
+                "trace_align", background="#1f3550", foreground="#e8f1ff"
+            )
+            self.editor.tag_configure(
+                "trace_match", background="#23523a", foreground="#dcfce7"
+            )
+            self.editor.tag_configure(
+                "trace_mismatch", background="#6a2c2c", foreground="#ffe4e6"
+            )
+
+            self.visual_text.tag_configure(
+                "viz_align", background="#26364a", foreground="#e8f1ff"
+            )
+            self.visual_text.tag_configure(
+                "viz_match", background="#1f5a3f", foreground="#dcfce7"
+            )
+            self.visual_text.tag_configure(
+                "viz_mismatch", background="#6a2b2b", foreground="#ffe4e6"
+            )
+            self.visual_text.tag_configure("viz_result_match", foreground="#86efac")
+            self.visual_text.tag_configure("viz_result_mismatch", foreground="#fca5a5")
+        else:
+            self.editor.tag_configure(
+                "match", background="#ffe8a3", foreground="#000000"
+            )
+            self.editor.tag_configure(
+                "current_match", background="#ffbe55", foreground="#000000"
+            )
+            self.editor.tag_configure(
+                "trace_align", background="#dbeafe", foreground="#000000"
+            )
+            self.editor.tag_configure(
+                "trace_match", background="#bbf7d0", foreground="#000000"
+            )
+            self.editor.tag_configure(
+                "trace_mismatch", background="#fecaca", foreground="#000000"
+            )
+
+            self.visual_text.tag_configure(
+                "viz_align", background="#e8eefc", foreground="#000000"
+            )
+            self.visual_text.tag_configure(
+                "viz_match", background="#dcfce7", foreground="#166534"
+            )
+            self.visual_text.tag_configure(
+                "viz_mismatch", background="#fee2e2", foreground="#991b1b"
+            )
+            self.visual_text.tag_configure("viz_result_match", foreground="#166534")
+            self.visual_text.tag_configure("viz_result_mismatch", foreground="#991b1b")
 
     def _on_text_modified(self, _event: tk.Event) -> None:
         if self.editor.edit_modified():
