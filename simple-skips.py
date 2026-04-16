@@ -200,12 +200,15 @@ class BMHTextEditor(tk.Tk):
         self.trace_step_index = 0
         self.trace_text = ""
         self.trace_pattern = ""
+        self.animation_job: Optional[str] = None
+        self.is_animating = False
 
         self.status_var = tk.StringVar(value="Ready")
         self.find_var = tk.StringVar()
         self.replace_var = tk.StringVar()
         self.step_var = tk.StringVar(value="Step 0/0")
         self.full_scan_var = tk.BooleanVar(value=False)
+        self.animation_delay_var = tk.IntVar(value=400)
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -282,6 +285,9 @@ class BMHTextEditor(tk.Tk):
         self.editor.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
         self.editor.tag_configure("match", background="#ffe8a3")
         self.editor.tag_configure("current_match", background="#ffbe55")
+        self.editor.tag_configure("trace_align", background="#dbeafe")
+        self.editor.tag_configure("trace_match", background="#bbf7d0")
+        self.editor.tag_configure("trace_mismatch", background="#fecaca")
         self.editor.bind("<<Modified>>", self._on_text_modified)
 
         editor_frame.rowconfigure(0, weight=1)
@@ -308,6 +314,20 @@ class BMHTextEditor(tk.Tk):
         ttk.Button(viz_controls, text="Next", command=self.next_trace_step).pack(
             side=tk.LEFT
         )
+        self.play_button = ttk.Button(
+            viz_controls, text="Play", command=self.toggle_animation
+        )
+        self.play_button.pack(side=tk.LEFT, padx=(6, 6))
+
+        ttk.Label(viz_controls, text="Delay (ms)").pack(side=tk.LEFT, padx=(8, 4))
+        ttk.Spinbox(
+            viz_controls,
+            from_=100,
+            to=2000,
+            increment=50,
+            textvariable=self.animation_delay_var,
+            width=6,
+        ).pack(side=tk.LEFT)
 
         ttk.Label(viz_frame, textvariable=self.step_var).pack(anchor="w", pady=(0, 6))
 
@@ -315,6 +335,15 @@ class BMHTextEditor(tk.Tk):
             viz_frame, height=16, wrap=tk.NONE, font=("Consolas", 10)
         )
         self.visual_text.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+        self.visual_text.tag_configure("viz_align", background="#e8eefc")
+        self.visual_text.tag_configure(
+            "viz_match", background="#dcfce7", foreground="#166534"
+        )
+        self.visual_text.tag_configure(
+            "viz_mismatch", background="#fee2e2", foreground="#991b1b"
+        )
+        self.visual_text.tag_configure("viz_result_match", foreground="#166534")
+        self.visual_text.tag_configure("viz_result_mismatch", foreground="#991b1b")
         self.visual_text.configure(state=tk.DISABLED)
 
         ttk.Label(viz_frame, text="Skip Table").pack(anchor="w")
@@ -438,12 +467,19 @@ class BMHTextEditor(tk.Tk):
         return self.save_file()
 
     def _on_close(self) -> None:
+        self._cancel_animation()
         if self._confirm_discard_if_needed():
             self.destroy()
 
     def clear_highlights(self) -> None:
         self.editor.tag_remove("match", "1.0", tk.END)
         self.editor.tag_remove("current_match", "1.0", tk.END)
+        self._clear_trace_highlights()
+
+    def _clear_trace_highlights(self) -> None:
+        self.editor.tag_remove("trace_align", "1.0", tk.END)
+        self.editor.tag_remove("trace_match", "1.0", tk.END)
+        self.editor.tag_remove("trace_mismatch", "1.0", tk.END)
 
     def _highlight_range(
         self, start_offset: int, end_offset: int, current: bool = False
@@ -574,6 +610,7 @@ class BMHTextEditor(tk.Tk):
         self._set_status(f"Replaced {len(matches)} occurrence(s).")
 
     def build_trace(self) -> None:
+        self._cancel_animation()
         pattern = self.find_var.get()
         if not pattern:
             self._set_status("Find text is empty. Enter pattern first.")
@@ -620,6 +657,7 @@ class BMHTextEditor(tk.Tk):
             self._set_status(f"Trace built. First match at index {first_match}.")
 
     def prev_trace_step(self) -> None:
+        self._cancel_animation()
         if not self.trace_steps:
             self._set_status("Build a trace first.")
             return
@@ -629,6 +667,7 @@ class BMHTextEditor(tk.Tk):
             self._render_trace_step()
 
     def next_trace_step(self) -> None:
+        self._cancel_animation()
         if not self.trace_steps:
             self._set_status("Build a trace first.")
             return
@@ -636,6 +675,50 @@ class BMHTextEditor(tk.Tk):
         if self.trace_step_index < len(self.trace_steps) - 1:
             self.trace_step_index += 1
             self._render_trace_step()
+
+    def toggle_animation(self) -> None:
+        if self.is_animating:
+            self._cancel_animation(update_status=True)
+            return
+
+        if not self.trace_steps:
+            self._set_status("Build a trace first.")
+            return
+
+        self.is_animating = True
+        self.play_button.configure(text="Stop")
+        self._set_status("Animation started.")
+        self._animate_trace_step()
+
+    def _animate_trace_step(self) -> None:
+        if not self.is_animating:
+            return
+
+        self._render_trace_step()
+
+        if self.trace_step_index >= len(self.trace_steps) - 1:
+            self._cancel_animation(update_status=True, message="Animation completed.")
+            return
+
+        self.trace_step_index += 1
+        delay = max(80, int(self.animation_delay_var.get()))
+        self.animation_job = self.after(delay, self._animate_trace_step)
+
+    def _cancel_animation(
+        self,
+        update_status: bool = False,
+        message: str = "Animation stopped.",
+    ) -> None:
+        if self.animation_job is not None:
+            self.after_cancel(self.animation_job)
+            self.animation_job = None
+
+        was_animating = self.is_animating
+        self.is_animating = False
+        self.play_button.configure(text="Play")
+
+        if update_status and was_animating:
+            self._set_status(message)
 
     def _render_trace_step(self) -> None:
         if not self.trace_steps:
@@ -682,21 +765,117 @@ class BMHTextEditor(tk.Tk):
             ", ".join(checks) if checks else "No character comparisons in this step."
         )
         result_text = "MATCH" if step.is_match else "MISMATCH"
+        text_prefix = "Text   : "
+        pattern_prefix = "Pattern: "
+        compare_prefix = "Compare: "
 
-        content = (
-            f"Window [{start}:{end}]\n"
-            f"Index  : {index_line}\n"
-            f"Text   : {window_display}\n"
-            f"Pattern: {pattern_line}\n"
-            f"Compare: {marker_line}\n\n"
-            f"Checks : {checks_text}\n"
-            f"Result : {result_text}\n"
-            f"Shift  : {step.shift}\n"
-            f"Why    : {step.reason}\n"
+        self.visual_text.configure(state=tk.NORMAL)
+        self.visual_text.delete("1.0", tk.END)
+
+        self.visual_text.insert(tk.END, f"Window [{start}:{end}]\n")
+        self.visual_text.insert(tk.END, f"Index  : {index_line}\n")
+
+        text_line_start = self.visual_text.index(tk.END)
+        self.visual_text.insert(tk.END, f"{text_prefix}{window_display}\n")
+
+        pattern_line_start = self.visual_text.index(tk.END)
+        self.visual_text.insert(tk.END, f"{pattern_prefix}{pattern_line}\n")
+
+        compare_line_start = self.visual_text.index(tk.END)
+        self.visual_text.insert(tk.END, f"{compare_prefix}{marker_line}\n\n")
+
+        self.visual_text.insert(tk.END, f"Checks : {checks_text}\n")
+
+        result_line_start = self.visual_text.index(tk.END)
+        self.visual_text.insert(tk.END, f"Result : {result_text}\n")
+
+        self.visual_text.insert(tk.END, f"Shift  : {step.shift}\n")
+        self.visual_text.insert(tk.END, f"Why    : {step.reason}\n")
+
+        alignment_display_start = max(0, step.alignment - start)
+        alignment_display_end = min(
+            len(window_display), alignment_display_start + len(pattern)
+        )
+        text_prefix_len = len(text_prefix)
+        pattern_prefix_len = len(pattern_prefix)
+
+        if alignment_display_end > alignment_display_start:
+            self.visual_text.tag_add(
+                "viz_align",
+                f"{text_line_start}+{text_prefix_len + alignment_display_start}c",
+                f"{text_line_start}+{text_prefix_len + alignment_display_end}c",
+            )
+            self.visual_text.tag_add(
+                "viz_align",
+                f"{pattern_line_start}+{pattern_prefix_len + pattern_offset}c",
+                f"{pattern_line_start}+{pattern_prefix_len + pattern_offset + len(pattern)}c",
+            )
+
+        compare_prefix_len = len(compare_prefix)
+        for (
+            text_index,
+            pattern_index,
+            _text_char,
+            _pattern_char,
+            matched,
+        ) in step.comparisons:
+            local_index = text_index - start
+            if local_index < 0 or local_index >= len(window_display):
+                continue
+
+            tag_name = "viz_match" if matched else "viz_mismatch"
+
+            self.visual_text.tag_add(
+                tag_name,
+                f"{text_line_start}+{text_prefix_len + local_index}c",
+                f"{text_line_start}+{text_prefix_len + local_index + 1}c",
+            )
+
+            pattern_local = pattern_offset + pattern_index
+            self.visual_text.tag_add(
+                tag_name,
+                f"{pattern_line_start}+{pattern_prefix_len + pattern_local}c",
+                f"{pattern_line_start}+{pattern_prefix_len + pattern_local + 1}c",
+            )
+
+            self.visual_text.tag_add(
+                tag_name,
+                f"{compare_line_start}+{compare_prefix_len + local_index}c",
+                f"{compare_line_start}+{compare_prefix_len + local_index + 1}c",
+            )
+
+        result_tag = "viz_result_match" if step.is_match else "viz_result_mismatch"
+        self.visual_text.tag_add(
+            result_tag,
+            f"{result_line_start}+9c",
+            f"{result_line_start}+{9 + len(result_text)}c",
         )
 
+        self.visual_text.configure(state=tk.DISABLED)
+
+        self._clear_trace_highlights()
+        if len(pattern) > 0:
+            align_start = self._offset_to_index(step.alignment)
+            align_end = self._offset_to_index(step.alignment + len(pattern))
+            self.editor.tag_add("trace_align", align_start, align_end)
+
+        for (
+            text_index,
+            _pattern_index,
+            _text_char,
+            _pattern_char,
+            matched,
+        ) in step.comparisons:
+            tag_name = "trace_match" if matched else "trace_mismatch"
+            self.editor.tag_add(
+                tag_name,
+                self._offset_to_index(text_index),
+                self._offset_to_index(text_index + 1),
+            )
+
+        self.editor.see(self._offset_to_index(step.alignment))
+
         self.step_var.set(f"Step {self.trace_step_index + 1}/{len(self.trace_steps)}")
-        self._set_readonly_text(self.visual_text, content)
 
     def _render_skip_table(self, pattern: str) -> None:
         if not pattern:
