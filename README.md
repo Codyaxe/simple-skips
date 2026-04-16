@@ -1,4 +1,4 @@
-# BMH Text Editor
+# Simple Skips Text Editor
 
 ## Description
 This project is a Python desktop text editor built with Tkinter. It uses the
