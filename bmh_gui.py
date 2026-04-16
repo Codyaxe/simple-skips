@@ -91,29 +91,29 @@ class BMHTextEditor(tk.Tk):
         )
         self.editor.grid(row=0, column=0, sticky="nsew")
 
-        self.editor_y_scroll = tk.Scrollbar(
+        self.editor_y_scroll = ttk.Scrollbar(
             self.editor_frame,
             orient=tk.VERTICAL,
             command=self.editor.yview,
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            width=10,
-            activerelief=tk.FLAT,
+            style="Minimal.Vertical.TScrollbar",
         )
         self.editor_y_scroll.grid(row=0, column=1, sticky="ns")
 
-        self.editor_x_scroll = tk.Scrollbar(
+        self.editor_x_scroll = ttk.Scrollbar(
             self.editor_frame,
             orient=tk.HORIZONTAL,
             command=self.editor.xview,
-            relief=tk.FLAT,
-            bd=0,
-            highlightthickness=0,
-            width=10,
-            activerelief=tk.FLAT,
+            style="Minimal.Horizontal.TScrollbar",
         )
         self.editor_x_scroll.grid(row=1, column=0, sticky="ew")
+
+        # Fill the bottom-right corner so both scrollbars render cleanly.
+        self.scroll_corner = tk.Frame(
+            self.editor_frame,
+            bd=0,
+            highlightthickness=0,
+        )
+        self.scroll_corner.grid(row=1, column=1, sticky="nsew")
 
         self.editor.configure(
             yscrollcommand=self.editor_y_scroll.set,
@@ -127,7 +127,9 @@ class BMHTextEditor(tk.Tk):
         self.editor.bind("<<Modified>>", self._on_text_modified)
 
         self.editor_frame.rowconfigure(0, weight=1)
+        self.editor_frame.rowconfigure(1, weight=0)
         self.editor_frame.columnconfigure(0, weight=1)
+        self.editor_frame.columnconfigure(1, weight=0)
 
         self.viz_frame = ttk.LabelFrame(self.split, text="BMH Visualization", padding=8)
         self.split.add(self.viz_frame, weight=2)
@@ -295,6 +297,13 @@ class BMHTextEditor(tk.Tk):
                 "scroll_bg": "#343434",
                 "scroll_trough": "#1e1e1e",
                 "scroll_active": "#4a4a4a",
+                "scroll_fg": "#d0d0d0",
+                "button_border": "#4d4d4d",
+                "button_active_border": "#6b6b6b",
+                "input_border": "#575b63",
+                "input_focus": "#7a818f",
+                "box_border": "#4b4f56",
+                "text_border": "#575b63",
             }
         else:
             colors = {
@@ -312,6 +321,13 @@ class BMHTextEditor(tk.Tk):
                 "scroll_bg": "#c9ced8",
                 "scroll_trough": "#eff2f7",
                 "scroll_active": "#b1bfda",
+                "scroll_fg": "#4f5b70",
+                "button_border": "#c5ccd8",
+                "button_active_border": "#9aa8c3",
+                "input_border": "#b8c0ce",
+                "input_focus": "#8ea2c6",
+                "box_border": "#c7cedb",
+                "text_border": "#b8c0ce",
             }
 
         self.configure(bg=colors["bg"])
@@ -326,7 +342,15 @@ class BMHTextEditor(tk.Tk):
         self.style.configure("TFrame", background=colors["bg"])
         self.style.configure("TLabel", background=colors["bg"], foreground=colors["fg"])
         self.style.configure(
-            "TButton", background=colors["panel"], foreground=colors["fg"]
+            "TButton",
+            background=colors["panel"],
+            foreground=colors["fg"],
+            bordercolor=colors["button_border"],
+            lightcolor=colors["panel"],
+            darkcolor=colors["panel"],
+            focuscolor=colors["active"],
+            relief="flat",
+            borderwidth=1,
         )
         self.style.configure(
             "TCheckbutton",
@@ -337,7 +361,9 @@ class BMHTextEditor(tk.Tk):
             "TLabelframe",
             background=colors["bg"],
             foreground=colors["fg"],
-            bordercolor=colors["border"],
+            bordercolor=colors["box_border"],
+            lightcolor=colors["box_border"],
+            darkcolor=colors["box_border"],
         )
         self.style.configure(
             "TLabelframe.Label",
@@ -348,11 +374,21 @@ class BMHTextEditor(tk.Tk):
             "TEntry",
             fieldbackground=colors["panel"],
             foreground=colors["fg"],
+            bordercolor=colors["input_border"],
+            lightcolor=colors["input_border"],
+            darkcolor=colors["input_border"],
+            insertcolor=colors["fg"],
+            relief="flat",
         )
         self.style.configure(
             "TSpinbox",
             fieldbackground=colors["panel"],
             foreground=colors["fg"],
+            bordercolor=colors["input_border"],
+            lightcolor=colors["input_border"],
+            darkcolor=colors["input_border"],
+            insertcolor=colors["fg"],
+            relief="flat",
         )
         self.style.configure(
             "Status.TLabel",
@@ -365,11 +401,42 @@ class BMHTextEditor(tk.Tk):
             "TButton",
             background=[("active", colors["active"])],
             foreground=[("disabled", colors["muted"])],
+            bordercolor=[("active", colors["button_active_border"])],
         )
         self.style.map(
             "TCheckbutton",
             background=[("active", colors["bg"])],
             foreground=[("disabled", colors["muted"])],
+        )
+        self.style.map(
+            "TEntry",
+            bordercolor=[
+                ("focus", colors["input_focus"]),
+                ("!focus", colors["input_border"]),
+            ],
+            lightcolor=[
+                ("focus", colors["input_focus"]),
+                ("!focus", colors["input_border"]),
+            ],
+            darkcolor=[
+                ("focus", colors["input_focus"]),
+                ("!focus", colors["input_border"]),
+            ],
+        )
+        self.style.map(
+            "TSpinbox",
+            bordercolor=[
+                ("focus", colors["input_focus"]),
+                ("!focus", colors["input_border"]),
+            ],
+            lightcolor=[
+                ("focus", colors["input_focus"]),
+                ("!focus", colors["input_border"]),
+            ],
+            darkcolor=[
+                ("focus", colors["input_focus"]),
+                ("!focus", colors["input_border"]),
+            ],
         )
 
         for menu in (self.menu_bar, self.file_menu, self.view_menu):
@@ -388,18 +455,58 @@ class BMHTextEditor(tk.Tk):
                 insertbackground=colors["insert"],
                 selectbackground=colors["select_bg"],
                 selectforeground=colors["select_fg"],
-            )
-
-        for bar in (self.editor_y_scroll, self.editor_x_scroll):
-            bar.configure(
-                background=colors["scroll_bg"],
-                troughcolor=colors["scroll_trough"],
-                activebackground=colors["scroll_active"],
                 relief=tk.FLAT,
                 bd=0,
-                highlightthickness=0,
-                highlightbackground=colors["scroll_trough"],
+                highlightthickness=1,
+                highlightbackground=colors["text_border"],
+                highlightcolor=colors["input_focus"],
             )
+
+        self.style.configure(
+            "Minimal.Vertical.TScrollbar",
+            gripcount=0,
+            background=colors["scroll_bg"],
+            darkcolor=colors["scroll_bg"],
+            lightcolor=colors["scroll_bg"],
+            troughcolor=colors["scroll_trough"],
+            bordercolor=colors["scroll_trough"],
+            arrowcolor=colors["scroll_fg"],
+            relief="flat",
+            borderwidth=0,
+            arrowsize=12,
+            width=12,
+        )
+        self.style.map(
+            "Minimal.Vertical.TScrollbar",
+            background=[("active", colors["scroll_active"])],
+            darkcolor=[("active", colors["scroll_active"])],
+            lightcolor=[("active", colors["scroll_active"])],
+            arrowcolor=[("active", colors["scroll_fg"])],
+        )
+
+        self.style.configure(
+            "Minimal.Horizontal.TScrollbar",
+            gripcount=0,
+            background=colors["scroll_bg"],
+            darkcolor=colors["scroll_bg"],
+            lightcolor=colors["scroll_bg"],
+            troughcolor=colors["scroll_trough"],
+            bordercolor=colors["scroll_trough"],
+            arrowcolor=colors["scroll_fg"],
+            relief="flat",
+            borderwidth=0,
+            arrowsize=12,
+            width=12,
+        )
+        self.style.map(
+            "Minimal.Horizontal.TScrollbar",
+            background=[("active", colors["scroll_active"])],
+            darkcolor=[("active", colors["scroll_active"])],
+            lightcolor=[("active", colors["scroll_active"])],
+            arrowcolor=[("active", colors["scroll_fg"])],
+        )
+
+        self.scroll_corner.configure(background=colors["scroll_trough"])
 
         self._configure_highlight_tags(dark)
 
@@ -470,7 +577,7 @@ class BMHTextEditor(tk.Tk):
     def _update_window_title(self) -> None:
         name = self.current_file if self.current_file else "Untitled"
         dirty = " *" if self.is_dirty else ""
-        self.title(f"BMH Text Editor - {name}{dirty}")
+        self.title(f"Simple Skips Text Editor - {name}{dirty}")
 
     def _set_status(self, message: str) -> None:
         self.status_var.set(message)
