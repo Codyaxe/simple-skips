@@ -77,10 +77,6 @@ class BMHTextEditor(tk.Tk):
         self._apply_theme()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ========================================================================
-    # UI CONSTRUCTION
-    # ========================================================================
-
     def _build_ui(self) -> None:
         """Build main UI layout."""
         self.container = ttk.Frame(self, padding=10)
@@ -199,10 +195,6 @@ class BMHTextEditor(tk.Tk):
         self.bind_all("<Control-s>", self._on_shortcut_save)
         self.bind_all("<Control-S>", self._on_shortcut_save_as)
 
-    # ========================================================================
-    # THEME MANAGEMENT
-    # ========================================================================
-
     def toggle_dark_mode(self) -> None:
         """Toggle dark/light mode."""
         self._apply_theme()
@@ -240,10 +232,6 @@ class BMHTextEditor(tk.Tk):
 
         # Highlight tags
         self.theme_manager.configure_highlight_tags(self, dark)
-
-    # ========================================================================
-    # FILE OPERATIONS
-    # ========================================================================
 
     def new_file(self) -> None:
         """Create a new file."""
@@ -339,10 +327,6 @@ class BMHTextEditor(tk.Tk):
         name = self.current_file if self.current_file else "Untitled"
         dirty = " *" if self.is_dirty else ""
         self.title(f"Simple Skips Text Editor - {name}{dirty}")
-
-    # ========================================================================
-    # SEARCH OPERATIONS
-    # ========================================================================
 
     def find_next(self) -> None:
         """Find next occurrence of search pattern."""
@@ -469,10 +453,6 @@ class BMHTextEditor(tk.Tk):
             wrapped = index != -1
 
         return index, wrapped
-
-    # ========================================================================
-    # TRACE & VISUALIZATION
-    # ========================================================================
 
     def build_trace(self) -> None:
         """Build trace from current text and pattern."""
@@ -784,10 +764,6 @@ class BMHTextEditor(tk.Tk):
 
         self.viz_panel.set_skip_table("\n".join(rows))
 
-    # ========================================================================
-    # PERFORMANCE EVALUATION
-    # ========================================================================
-
     def run_performance_evaluation(self) -> None:
         """Run performance evaluation."""
         text = self.editor_panel.get_content()
@@ -887,10 +863,6 @@ class BMHTextEditor(tk.Tk):
         if isinstance(result, list):
             return f"{len(result)} matches"
         return str(result)
-
-    # ========================================================================
-    # SHORTCUTS & UTILITIES
-    # ========================================================================
 
     def _on_shortcut_new(self, _event: tk.Event) -> str:
         self.new_file()
