@@ -1,4 +1,6 @@
-from typing import List, Optional, Tuple
+import time
+import tracemalloc
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -12,6 +14,251 @@ from bmh_logic import (
     display_char,
     visual_char,
 )
+
+
+class _DropdownMenu:
+    """Borderless themed dropdown that replaces native tk.Menu popups."""
+
+    def __init__(self, root: tk.Tk) -> None:
+        self._root = root
+        self._items: List[Dict[str, Any]] = []
+        self._win: Optional[tk.Toplevel] = None
+
+    def add_command(
+        self,
+        label: str,
+        command: Optional[Callable[[], Any]] = None,
+        accelerator: str = "",
+    ) -> None:
+        self._items.append(
+            {
+                "type": "command",
+                "label": label,
+                "command": command,
+                "accelerator": accelerator,
+            }
+        )
+
+    def add_checkbutton(
+        self,
+        label: str,
+        variable: Optional[tk.BooleanVar] = None,
+        command: Optional[Callable[[], Any]] = None,
+    ) -> None:
+        self._items.append(
+            {
+                "type": "checkbutton",
+                "label": label,
+                "variable": variable,
+                "command": command,
+            }
+        )
+
+    def add_separator(self) -> None:
+        self._items.append({"type": "separator"})
+
+    def show(self, x: int, y: int, colors: Dict[str, str]) -> None:
+        self._close()
+        win = tk.Toplevel(self._root)
+        win.overrideredirect(True)
+        win.configure(bg=colors["border"])
+
+        inner = tk.Frame(win, bg=colors["panel"], bd=0, highlightthickness=0)
+        inner.pack(fill=tk.BOTH, expand=True, padx=1, pady=1)
+
+        for item in self._items:
+            if item["type"] == "separator":
+                tk.Frame(inner, height=1, bg=colors["border"]).pack(
+                    fill=tk.X,
+                    padx=6,
+                    pady=2,
+                )
+                continue
+            self._build_row(inner, item, colors, win)
+
+        win.update_idletasks()
+        win.geometry(f"+{x}+{y}")
+        win.lift()
+        self._win = win
+
+    def _build_row(
+        self,
+        parent: tk.Frame,
+        item: Dict[str, Any],
+        colors: Dict[str, str],
+        win: tk.Toplevel,
+    ) -> None:
+        row = tk.Frame(parent, bg=colors["panel"])
+        row.pack(fill=tk.X, padx=2)
+
+        check_text = ""
+        variable = item.get("variable")
+        if item["type"] == "checkbutton" and variable is not None:
+            check_text = "\u2713" if variable.get() else ""
+
+        ind = tk.Label(
+            row,
+            text=check_text,
+            bg=colors["panel"],
+            fg=colors["fg"],
+            width=2,
+            font=("Segoe UI", 9),
+            anchor="center",
+        )
+        ind.pack(side=tk.LEFT, padx=(4, 0))
+
+        lbl = tk.Label(
+            row,
+            text=item["label"],
+            bg=colors["panel"],
+            fg=colors["fg"],
+            anchor="w",
+            padx=6,
+            pady=4,
+            font=("Segoe UI", 9),
+        )
+        lbl.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        row_widgets: List[Any] = [row, ind, lbl]
+        accelerator = item.get("accelerator")
+        if accelerator:
+            acc = tk.Label(
+                row,
+                text=accelerator,
+                bg=colors["panel"],
+                fg=colors.get("muted", colors["fg"]),
+                padx=10,
+                pady=4,
+                font=("Segoe UI", 9),
+            )
+            acc.pack(side=tk.RIGHT)
+            row_widgets.append(acc)
+
+        def _enter(_event: tk.Event) -> None:
+            for widget in row_widgets:
+                widget.configure(background=colors["active"])
+
+        def _leave(_event: tk.Event) -> None:
+            for widget in row_widgets:
+                widget.configure(background=colors["panel"])
+
+        def _click(_event: tk.Event) -> None:
+            win.destroy()
+            self._win = None
+
+            if item["type"] == "checkbutton" and variable is not None:
+                variable.set(not variable.get())
+
+            command = item.get("command")
+            if command is not None:
+                command()
+
+        for widget in row_widgets:
+            widget.bind("<Enter>", _enter)
+            widget.bind("<Leave>", _leave)
+            widget.bind("<Button-1>", _click)
+
+    def is_open(self) -> bool:
+        return bool(self._win and self._win.winfo_exists())
+
+    def close(self) -> None:
+        self._close()
+
+    def _close(self) -> None:
+        if self._win and self._win.winfo_exists():
+            self._win.destroy()
+        self._win = None
+
+
+class _CustomMenuBar(tk.Frame):
+    """Themed text menu bar that opens _DropdownMenu popups."""
+
+    def __init__(self, parent: tk.Tk) -> None:
+        super().__init__(parent, bd=0, highlightthickness=0)
+        self._dropdowns: Dict[str, _DropdownMenu] = {}
+        self._buttons: Dict[str, tk.Label] = {}
+        self._colors: Dict[str, str] = {}
+        self._active: Optional[str] = None
+        parent.bind("<Button-1>", self._on_global_click, "+")
+
+    def add_cascade(self, label: str, menu: _DropdownMenu) -> None:
+        self._dropdowns[label] = menu
+
+        btn = tk.Label(
+            self,
+            text=label,
+            padx=10,
+            pady=4,
+            font=("Segoe UI", 9),
+            cursor="arrow",
+        )
+        btn.pack(side=tk.LEFT)
+        btn.bind("<Button-1>", lambda _event, name=label: self._on_btn_click(name))
+        btn.bind("<Enter>", lambda _event, widget=btn: self._hover(widget, True))
+        btn.bind("<Leave>", lambda _event, widget=btn: self._hover(widget, False))
+        self._buttons[label] = btn
+
+    def update_colors(self, colors: Dict[str, str]) -> None:
+        self._colors = colors
+        self.configure(bg=colors["panel"])
+        for btn in self._buttons.values():
+            btn.configure(background=colors["panel"], foreground=colors["fg"])
+
+    def close_all(self) -> None:
+        for dropdown in self._dropdowns.values():
+            dropdown.close()
+        self._active = None
+
+    def _hover(self, btn: tk.Label, entering: bool) -> None:
+        if not self._colors:
+            return
+        target = self._colors["active"] if entering else self._colors["panel"]
+        btn.configure(background=target)
+
+    def _on_btn_click(self, label: str) -> None:
+        dropdown = self._dropdowns[label]
+        if dropdown.is_open():
+            dropdown.close()
+            self._active = None
+            return
+
+        self.close_all()
+        btn = self._buttons[label]
+        x = btn.winfo_rootx()
+        y = btn.winfo_rooty() + btn.winfo_height()
+        dropdown.show(x, y, self._colors)
+        self._active = label
+
+    def _on_global_click(self, event: tk.Event) -> None:
+        if not self._active:
+            return
+
+        dropdown = self._dropdowns.get(self._active)
+        if dropdown is None or not dropdown.is_open():
+            self._active = None
+            return
+
+        try:
+            win = dropdown._win
+            if win is None:
+                self._active = None
+                return
+
+            wx, wy = win.winfo_rootx(), win.winfo_rooty()
+            ww, wh = win.winfo_width(), win.winfo_height()
+            if wx <= event.x_root <= wx + ww and wy <= event.y_root <= wy + wh:
+                return
+
+            for btn in self._buttons.values():
+                bx, by = btn.winfo_rootx(), btn.winfo_rooty()
+                bw, bh = btn.winfo_width(), btn.winfo_height()
+                if bx <= event.x_root <= bx + bw and by <= event.y_root <= by + bh:
+                    return
+
+            dropdown.close()
+            self._active = None
+        except tk.TclError:
+            self._active = None
 
 
 class BMHTextEditor(tk.Tk):
@@ -41,6 +288,8 @@ class BMHTextEditor(tk.Tk):
         self.dark_mode_var = tk.BooleanVar(value=False)
         self.show_visualization_var = tk.BooleanVar(value=True)
         self.style = ttk.Style(self)
+        self.theme_colors: Dict[str, str] = {}
+        self.performance_window: Optional[tk.Toplevel] = None
 
         self._build_ui()
         self._build_menu()
@@ -193,15 +442,26 @@ class BMHTextEditor(tk.Tk):
         self.skip_text.pack(fill=tk.X)
         self.skip_text.configure(state=tk.DISABLED)
 
-        self.status_label = ttk.Label(
-            self.container, textvariable=self.status_var, anchor="w", relief=tk.SUNKEN
+        self.status_frame = tk.Frame(
+            self.container,
+            bd=0,
+            highlightthickness=1,
         )
-        self.status_label.pack(fill=tk.X, pady=(8, 0))
+        self.status_frame.pack(fill=tk.X, pady=(8, 0))
+
+        self.status_label = ttk.Label(
+            self.status_frame,
+            textvariable=self.status_var,
+            anchor="w",
+            padding=(6, 2),
+        )
+        self.status_label.pack(fill=tk.X)
 
     def _build_menu(self) -> None:
-        self.menu_bar = tk.Menu(self, tearoff=False)
+        self.menu_bar = _CustomMenuBar(self)
+        self.menu_bar.pack(fill=tk.X, side=tk.TOP, before=self.container)
 
-        self.file_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.file_menu = _DropdownMenu(self)
         self.file_menu.add_command(
             label="New",
             accelerator="Ctrl+N",
@@ -225,7 +485,7 @@ class BMHTextEditor(tk.Tk):
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self._on_close)
 
-        self.view_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.view_menu = _DropdownMenu(self)
         self.view_menu.add_checkbutton(
             label="Dark Mode",
             variable=self.dark_mode_var,
@@ -237,9 +497,15 @@ class BMHTextEditor(tk.Tk):
             command=self.toggle_visualization,
         )
 
+        self.performance_menu = _DropdownMenu(self)
+        self.performance_menu.add_command(
+            label="Run Evaluation",
+            command=self.run_performance_evaluation,
+        )
+
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
         self.menu_bar.add_cascade(label="View", menu=self.view_menu)
-        self.config(menu=self.menu_bar)
+        self.menu_bar.add_cascade(label="Performance", menu=self.performance_menu)
 
         self._bind_shortcuts()
 
@@ -311,26 +577,27 @@ class BMHTextEditor(tk.Tk):
                 "panel": "#ffffff",
                 "fg": "#1f1f1f",
                 "muted": "#666666",
-                "active": "#e7eef8",
-                "border": "#cfcfcf",
+                "active": "#ececec",
+                "border": "#d9d9d9",
                 "text_bg": "#ffffff",
                 "text_fg": "#000000",
                 "insert": "#000000",
                 "select_bg": "#cfe3ff",
                 "select_fg": "#000000",
-                "scroll_bg": "#c9ced8",
-                "scroll_trough": "#eff2f7",
-                "scroll_active": "#b1bfda",
-                "scroll_fg": "#4f5b70",
-                "button_border": "#c5ccd8",
-                "button_active_border": "#9aa8c3",
-                "input_border": "#b8c0ce",
-                "input_focus": "#8ea2c6",
-                "box_border": "#c7cedb",
-                "text_border": "#b8c0ce",
+                "scroll_bg": "#dddddd",
+                "scroll_trough": "#f8f8f8",
+                "scroll_active": "#cfcfcf",
+                "scroll_fg": "#6e6e6e",
+                "button_border": "#d8d8d8",
+                "button_active_border": "#c6c6c6",
+                "input_border": "#dcdcdc",
+                "input_focus": "#c6c6c6",
+                "box_border": "#d6d6d6",
+                "text_border": "#dddddd",
             }
 
         self.configure(bg=colors["bg"])
+        self.theme_colors = colors
 
         self.style.configure(
             ".",
@@ -396,6 +663,11 @@ class BMHTextEditor(tk.Tk):
             foreground=colors["fg"],
         )
         self.status_label.configure(style="Status.TLabel")
+        self.status_frame.configure(
+            background=colors["panel"],
+            highlightbackground=colors["box_border"],
+            highlightcolor=colors["box_border"],
+        )
 
         self.style.map(
             "TButton",
@@ -439,14 +711,7 @@ class BMHTextEditor(tk.Tk):
             ],
         )
 
-        for menu in (self.menu_bar, self.file_menu, self.view_menu):
-            menu.configure(
-                background=colors["panel"],
-                foreground=colors["fg"],
-                activebackground=colors["active"],
-                activeforeground=colors["fg"],
-                borderwidth=1,
-            )
+        self.menu_bar.update_colors(colors)
 
         for widget in (self.editor, self.visual_text, self.skip_text):
             widget.configure(
@@ -509,6 +774,303 @@ class BMHTextEditor(tk.Tk):
         self.scroll_corner.configure(background=colors["scroll_trough"])
 
         self._configure_highlight_tags(dark)
+
+    def run_performance_evaluation(self) -> None:
+        text = self._get_text_content()
+        pattern = self.find_var.get()
+
+        if not text:
+            self._set_status("Performance evaluation requires text in the editor.")
+            messagebox.showinfo(
+                "Performance Evaluation",
+                "Add some text first before running performance evaluation.",
+            )
+            return
+
+        if not pattern:
+            self._set_status("Performance evaluation requires a pattern in Find.")
+            messagebox.showinfo(
+                "Performance Evaluation",
+                "Enter a pattern in the Find box before running evaluation.",
+            )
+            return
+
+        iterations = self._select_benchmark_iterations(len(text), len(pattern))
+
+        operations: List[Tuple[str, Callable[[], Any]]] = [
+            ("BMH Search", lambda: bmh_search(text, pattern, 0)),
+            (
+                "BMH Find All",
+                lambda: bmh_find_all(text, pattern, allow_overlap=True),
+            ),
+        ]
+
+        results: List[Dict[str, Any]] = []
+        for operation_name, callback in operations:
+            runtime_ms, peak_kb, result = self._measure_operation(callback, iterations)
+            results.append(
+                {
+                    "operation": operation_name,
+                    "runtime_ms": runtime_ms,
+                    "memory_kb": peak_kb,
+                    "result": self._format_performance_result(result),
+                }
+            )
+
+        self._show_performance_window(results, len(text), len(pattern), iterations)
+        self._set_status("Performance evaluation complete.")
+
+    def _select_benchmark_iterations(self, text_len: int, pattern_len: int) -> int:
+        scale = text_len + pattern_len
+        if scale <= 1_000:
+            return 500
+        if scale <= 10_000:
+            return 150
+        if scale <= 100_000:
+            return 35
+        return 10
+
+    def _measure_operation(
+        self,
+        callback: Callable[[], Any],
+        iterations: int,
+    ) -> Tuple[float, float, Any]:
+        iterations = max(1, iterations)
+        result: Any = None
+
+        tracemalloc.start()
+        start = time.perf_counter()
+        for _ in range(iterations):
+            result = callback()
+        elapsed = time.perf_counter() - start
+        _current, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        avg_runtime_ms = (elapsed / iterations) * 1000.0
+        peak_kb = peak / 1024.0
+        return avg_runtime_ms, peak_kb, result
+
+    def _format_performance_result(self, result: Any) -> str:
+        if isinstance(result, list):
+            return f"{len(result)} matches"
+        return str(result)
+
+    def _show_performance_window(
+        self,
+        results: List[Dict[str, Any]],
+        text_len: int,
+        pattern_len: int,
+        iterations: int,
+    ) -> None:
+        if self.performance_window and self.performance_window.winfo_exists():
+            self.performance_window.destroy()
+
+        self.performance_window = tk.Toplevel(self)
+        self.performance_window.title("Performance Evaluation")
+        self.performance_window.geometry("920x560")
+        self.performance_window.minsize(760, 480)
+
+        colors = self.theme_colors or {
+            "bg": "#f5f5f5",
+            "panel": "#ffffff",
+            "fg": "#1f1f1f",
+            "border": "#cfcfcf",
+        }
+
+        self.performance_window.configure(bg=colors["bg"])
+
+        summary = (
+            f"Text length: {text_len}    Pattern length: {pattern_len}    "
+            f"Iterations per operation: {iterations}"
+        )
+        ttk.Label(self.performance_window, text=summary, anchor="w").pack(
+            fill=tk.X, padx=12, pady=(10, 6)
+        )
+
+        notebook = ttk.Notebook(self.performance_window)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
+
+        table_frame = ttk.Frame(notebook)
+        notebook.add(table_frame, text="Table")
+
+        columns = ("operation", "runtime", "memory", "result")
+        tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=12)
+        tree.heading("operation", text="Operation")
+        tree.heading("runtime", text="Avg Runtime (ms)")
+        tree.heading("memory", text="Peak Memory (KB)")
+        tree.heading("result", text="Result")
+
+        tree.column("operation", width=200, anchor=tk.W)
+        tree.column("runtime", width=140, anchor=tk.E)
+        tree.column("memory", width=140, anchor=tk.E)
+        tree.column("result", width=220, anchor=tk.W)
+
+        for row in results:
+            tree.insert(
+                "",
+                tk.END,
+                values=(
+                    row["operation"],
+                    f"{row['runtime_ms']:.4f}",
+                    f"{row['memory_kb']:.2f}",
+                    row["result"],
+                ),
+            )
+
+        table_scroll = ttk.Scrollbar(
+            table_frame,
+            orient=tk.VERTICAL,
+            command=tree.yview,
+            style="Minimal.Vertical.TScrollbar",
+        )
+        tree.configure(yscrollcommand=table_scroll.set)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        table_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        graph_frame = ttk.Frame(notebook)
+        notebook.add(graph_frame, text="Graph")
+
+        graph_canvas = tk.Canvas(
+            graph_frame,
+            bd=0,
+            highlightthickness=0,
+            background=colors["panel"],
+        )
+        graph_canvas.pack(fill=tk.BOTH, expand=True)
+
+        def _redraw(_event: tk.Event) -> None:
+            self._render_performance_graph(graph_canvas, results)
+
+        graph_canvas.bind("<Configure>", _redraw)
+        self._render_performance_graph(graph_canvas, results)
+
+    def _render_performance_graph(
+        self,
+        canvas: tk.Canvas,
+        results: List[Dict[str, Any]],
+    ) -> None:
+        canvas.delete("all")
+
+        colors = self.theme_colors or {
+            "panel": "#ffffff",
+            "fg": "#1f1f1f",
+            "border": "#cfcfcf",
+            "button_active_border": "#9aa8c3",
+            "input_focus": "#8ea2c6",
+        }
+
+        canvas.configure(background=colors["panel"])
+
+        width = max(760, canvas.winfo_width())
+        height = max(320, canvas.winfo_height())
+        left_margin = 50
+        right_margin = 28
+        top_margin = 50
+        bottom_margin = 70
+        gap = 36
+        chart_w = max(220, (width - left_margin - right_margin - gap) // 2)
+        chart_h = max(160, height - top_margin - bottom_margin)
+
+        runtime_x = left_margin
+        memory_x = left_margin + chart_w + gap
+        chart_y = top_margin
+
+        runtime_color = colors.get("button_active_border", "#3b82f6")
+        memory_color = colors.get("input_focus", "#f59e0b")
+
+        self._draw_metric_chart(
+            canvas,
+            results,
+            "runtime_ms",
+            "Avg Runtime (ms)",
+            runtime_x,
+            chart_y,
+            chart_w,
+            chart_h,
+            runtime_color,
+            colors["fg"],
+            colors["border"],
+        )
+        self._draw_metric_chart(
+            canvas,
+            results,
+            "memory_kb",
+            "Peak Memory (KB)",
+            memory_x,
+            chart_y,
+            chart_w,
+            chart_h,
+            memory_color,
+            colors["fg"],
+            colors["border"],
+        )
+
+    def _draw_metric_chart(
+        self,
+        canvas: tk.Canvas,
+        results: List[Dict[str, Any]],
+        metric_key: str,
+        title: str,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        bar_color: str,
+        text_color: str,
+        border_color: str,
+    ) -> None:
+        values = [float(item[metric_key]) for item in results]
+        max_value = max(values) if values else 1.0
+        max_value = max(max_value, 1e-9)
+
+        canvas.create_rectangle(
+            x,
+            y,
+            x + width,
+            y + height,
+            outline=border_color,
+            width=1,
+        )
+        canvas.create_text(
+            x + width / 2,
+            y - 18,
+            text=title,
+            fill=text_color,
+            font=("Segoe UI", 10, "bold"),
+        )
+
+        slot_w = width / max(1, len(results))
+        bar_w = slot_w * 0.55
+
+        for index, item in enumerate(results):
+            value = float(item[metric_key])
+            bar_h = (value / max_value) * (height - 28)
+            left = x + index * slot_w + (slot_w - bar_w) / 2
+            top = y + height - bar_h
+
+            canvas.create_rectangle(
+                left,
+                top,
+                left + bar_w,
+                y + height,
+                fill=bar_color,
+                outline="",
+            )
+            canvas.create_text(
+                left + bar_w / 2,
+                top - 12,
+                text=f"{value:.2f}",
+                fill=text_color,
+                font=("Segoe UI", 8),
+            )
+            canvas.create_text(
+                left + bar_w / 2,
+                y + height + 14,
+                text=item["operation"],
+                fill=text_color,
+                font=("Segoe UI", 8),
+                width=max(70, int(slot_w) - 8),
+            )
 
     def _configure_highlight_tags(self, dark: bool) -> None:
         if dark:
