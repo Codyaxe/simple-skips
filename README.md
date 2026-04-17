@@ -1,50 +1,73 @@
-# Simple Skips Text Editor
+# 🔍 Simple Skips Text Editor
 
-## Description
-This project is a Python desktop text editor built with Tkinter. It uses the
-Boyer-Moore-Horspool (BMH) string matching algorithm for find/replace and
-includes a visual trace panel to show how matching works step by step.
+ (                                 (                        
+ )\ )                    (         )\ )    )                
+(()/( (      )           )\   (   (()/( ( /( (              
+ /(_)))\    (     `  )  ((_) ))\   /(_)))\()))\  `  )   (   
+(_)) ((_)   )\  ' /(/(   _  /((_) (_)) ((_)\((_) /(/(   )\  
+/ __| (_) _((_)) ((_)_\ | |(_))   / __|| |(_)(_)((_)_\ ((_) 
+\__ \ | || '  \()| '_ \)| |/ -_)  \__ \| / / | || '_ \)(_-< 
+|___/ |_||_|_|_| | .__/ |_|\___|  |___/|_\_\ |_|| .__/ /__/ 
+                 |_|                            |_|         
+        
+## 📝 Description
+This project is a Python desktop text editor built with **Tkinter**. It uses the **Boyer-Moore-Horspool (BMH)** string matching algorithm for find/replace and includes an interactive visual trace panel to show exactly how matching works—step by step.
 
-## Features
-- Text editing area with open, save, and save-as support.
-- Find Next, Find All, Replace Next, and Replace All using BMH.
-- Step-by-step BMH visualization with match/mismatch highlighting.
-- Animated trace playback with adjustable speed.
-- Skip table display for the active search pattern.
-- Dark mode toggle.
-- View option to show or hide the visualization panel.
+Perfect for learning algorithm visualization or just need a solid find/replace editor with dark mode.
 
-## Design
-The codebase is split into small modules for easier maintenance:
+## ✨ Features
+- 📄 **Text editing** with open, save, and save-as support
+- 🔎 **Find & Replace** (Next/All) powered by Boyer-Moore-Horspool
+- 🎬 **Step-by-step visualization** with match/mismatch highlighting
+- ⏯️ **Animated playback** with adjustable speed control
+- 📊 **Skip table display** for the active pattern
+- 🌙 **Dark mode toggle** for comfortable editing
+- 👁️ **View toggle** to show/hide visualization panel
 
-- `simple-skips.py`: Application entry point.
-- `bmh_gui.py`: GUI, menus, theme control, editor interactions, and visualization rendering.
-- `bmh_logic.py`: BMH algorithm utilities (search, find-all, trace, skip-table generation).
+## 🏗️ Architecture
+Modular, component-based design for maintainability:
 
-Core design flow:
+```
+bmh_app/
+├── main_window.py          ← Main orchestrator (891 lines)
+├── core/
+│   └── theme_manager.py    ← Centralized theme system
+├── components/
+│   ├── editor_panel.py     ← Text editor with syntax highlighting
+│   ├── search_bar.py       ← Find/replace controls
+│   ├── visualization_panel.py  ← BMH trace rendering
+│   └── performance_window.py   ← Performance evaluation popup
+└── ui_utils/
+    ├── dropdown_menu.py    ← Custom themed dropdown
+    └── custom_menu_bar.py  ← Custom styled menu bar
 
-1. User enters text and search pattern.
-2. GUI calls logic functions from `bmh_logic.py`.
-3. Results are rendered in the editor and visualization panel.
-4. Optional animation iterates through each recorded trace step.
+bmh_logic/                  ← Algorithm package
+├── __init__.py
+└── core.py                 ← BMH implementation
+```
 
-## Algorithm Used
-This project uses the **Boyer-Moore-Horspool (BMH)** algorithm.
+**Design pattern:** Event-driven callbacks for component communication, no tight coupling.
 
-BMH works by:
+## 🧠 Algorithm: Boyer-Moore-Horspool
 
-1. Building a skip table for the pattern.
-2. Aligning the pattern with the text and comparing characters from right to left.
-3. On mismatch, shifting by the skip-table value of the current aligned character.
-4. Repeating until a match is found or the text is exhausted.
+BMH is a **fast string matching algorithm** that excels at finding patterns in text:
 
-Why BMH here:
+1. **Skip table generation** — precompute jumps for each character in the pattern
+2. **Right-to-left comparison** — compare pattern and text from right to left
+3. **Intelligent skipping** — on mismatch, skip multiple positions using the skip table
+4. **Repeat until found** — continue until match or text exhausted
 
-- Faster average-case behavior than naive left-to-right matching.
-- Very suitable for interactive find/replace workflows.
-- Easy to visualize through alignment, comparison, and shift steps.
+**Why BMH here:**
+- ⚡ Much faster average case than naive matching
+- 📚 Excellent for interactive find/replace workflows  
+- 🎓 Highly visual and educational to trace step-by-step
 
-## Run
+## 🚀 Run
 ```bash
 python simple-skips.py
+```
+
+Or use the package directly:
+```bash
+python -m bmh_app
 ```
