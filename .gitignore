@@ -1,3 +1,6 @@
+# Hidden teste
+tests/
+
 # Python cache/artifacts
 __pycache__/
 *.py[cod]

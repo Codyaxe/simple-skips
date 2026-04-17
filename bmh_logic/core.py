@@ -1,3 +1,5 @@
+"""Boyer-Moore-Horspool string matching algorithm implementation."""
+
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
