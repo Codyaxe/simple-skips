@@ -875,26 +875,42 @@ class BMHTextEditor(tk.Tk):
             "panel": "#ffffff",
             "fg": "#1f1f1f",
             "border": "#cfcfcf",
+            "muted": "#666666",
+            "active": "#ececec",
+            "text_bg": "#ffffff",
+            "text_fg": "#000000",
+            "select_bg": "#cfe3ff",
+            "select_fg": "#000000",
         }
 
         self.performance_window.configure(bg=colors["bg"])
+        self._configure_performance_styles(colors)
 
         summary = (
             f"Text length: {text_len}    Pattern length: {pattern_len}    "
             f"Iterations per operation: {iterations}"
         )
-        ttk.Label(self.performance_window, text=summary, anchor="w").pack(
-            fill=tk.X, padx=12, pady=(10, 6)
-        )
+        ttk.Label(
+            self.performance_window,
+            text=summary,
+            anchor="w",
+            style="PerfSummary.TLabel",
+        ).pack(fill=tk.X, padx=12, pady=(10, 6))
 
-        notebook = ttk.Notebook(self.performance_window)
+        notebook = ttk.Notebook(self.performance_window, style="Perf.TNotebook")
         notebook.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
-        table_frame = ttk.Frame(notebook)
+        table_frame = ttk.Frame(notebook, style="Perf.TFrame")
         notebook.add(table_frame, text="Table")
 
         columns = ("operation", "runtime", "memory", "result")
-        tree = ttk.Treeview(table_frame, columns=columns, show="headings", height=12)
+        tree = ttk.Treeview(
+            table_frame,
+            columns=columns,
+            show="headings",
+            height=12,
+            style="Perf.Treeview",
+        )
         tree.heading("operation", text="Operation")
         tree.heading("runtime", text="Avg Runtime (ms)")
         tree.heading("memory", text="Peak Memory (KB)")
@@ -905,7 +921,15 @@ class BMHTextEditor(tk.Tk):
         tree.column("memory", width=140, anchor=tk.E)
         tree.column("result", width=220, anchor=tk.W)
 
-        for row in results:
+        tree.tag_configure(
+            "perf_even", background=colors["text_bg"], foreground=colors["text_fg"]
+        )
+        tree.tag_configure(
+            "perf_odd", background=colors["panel"], foreground=colors["text_fg"]
+        )
+
+        for index, row in enumerate(results):
+            row_tag = "perf_even" if index % 2 == 0 else "perf_odd"
             tree.insert(
                 "",
                 tk.END,
@@ -915,6 +939,7 @@ class BMHTextEditor(tk.Tk):
                     f"{row['memory_kb']:.2f}",
                     row["result"],
                 ),
+                tags=(row_tag,),
             )
 
         table_scroll = ttk.Scrollbar(
@@ -927,14 +952,14 @@ class BMHTextEditor(tk.Tk):
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         table_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        graph_frame = ttk.Frame(notebook)
+        graph_frame = ttk.Frame(notebook, style="Perf.TFrame")
         notebook.add(graph_frame, text="Graph")
 
         graph_canvas = tk.Canvas(
             graph_frame,
             bd=0,
             highlightthickness=0,
-            background=colors["panel"],
+            background=colors["text_bg"],
         )
         graph_canvas.pack(fill=tk.BOTH, expand=True)
 
@@ -943,6 +968,106 @@ class BMHTextEditor(tk.Tk):
 
         graph_canvas.bind("<Configure>", _redraw)
         self._render_performance_graph(graph_canvas, results)
+
+    def _configure_performance_styles(self, colors: Dict[str, str]) -> None:
+        self.style.configure(
+            "PerfSummary.TLabel",
+            background=colors["bg"],
+            foreground=colors["fg"],
+        )
+        self.style.configure(
+            "Perf.TFrame",
+            background=colors["panel"],
+        )
+
+        self.style.configure(
+            "Perf.TNotebook",
+            background=colors["bg"],
+            borderwidth=0,
+            relief="flat",
+            bordercolor=colors["bg"],
+            lightcolor=colors["bg"],
+            darkcolor=colors["bg"],
+            tabmargins=(2, 2, 2, 0),
+        )
+        self.style.configure(
+            "Perf.TNotebook.Tab",
+            background=colors["panel"],
+            foreground=colors["muted"],
+            padding=(12, 6),
+            borderwidth=0,
+            relief="flat",
+            lightcolor=colors["active"],
+            darkcolor=colors["active"],
+        )
+        self.style.layout(
+            "Perf.TNotebook.Tab",
+            [
+                (
+                    "Notebook.tab",
+                    {
+                        "sticky": "nswe",
+                        "children": [
+                            (
+                                "Notebook.padding",
+                                {
+                                    "side": "top",
+                                    "sticky": "nswe",
+                                    "children": [
+                                        (
+                                            "Notebook.label",
+                                            {"side": "top", "sticky": ""},
+                                        )
+                                    ],
+                                },
+                            )
+                        ],
+                    },
+                )
+            ],
+        )
+        self.style.map(
+            "Perf.TNotebook.Tab",
+            background=[("selected", colors["active"]), ("active", colors["active"])],
+            foreground=[("selected", colors["fg"]), ("active", colors["fg"])],
+        )
+
+        self.style.configure(
+            "Perf.Treeview",
+            background=colors["text_bg"],
+            fieldbackground=colors["text_bg"],
+            foreground=colors["text_fg"],
+            rowheight=24,
+            borderwidth=0,
+            relief="flat",
+            bordercolor=colors["panel"],
+            lightcolor=colors["panel"],
+            darkcolor=colors["panel"],
+        )
+        self.style.layout(
+            "Perf.Treeview",
+            [("Treeview.treearea", {"sticky": "nswe"})],
+        )
+        self.style.map(
+            "Perf.Treeview",
+            background=[("selected", colors["select_bg"])],
+            foreground=[("selected", colors["select_fg"])],
+        )
+        self.style.configure(
+            "Perf.Treeview.Heading",
+            background=colors["active"],
+            foreground=colors["fg"],
+            relief="flat",
+            borderwidth=0,
+            bordercolor=colors["active"],
+            lightcolor=colors["active"],
+            darkcolor=colors["active"],
+        )
+        self.style.map(
+            "Perf.Treeview.Heading",
+            background=[("active", colors["active"])],
+            foreground=[("active", colors["fg"])],
+        )
 
     def _render_performance_graph(
         self,
@@ -955,11 +1080,13 @@ class BMHTextEditor(tk.Tk):
             "panel": "#ffffff",
             "fg": "#1f1f1f",
             "border": "#cfcfcf",
+            "active": "#ececec",
+            "text_bg": "#ffffff",
             "button_active_border": "#9aa8c3",
             "input_focus": "#8ea2c6",
         }
 
-        canvas.configure(background=colors["panel"])
+        canvas.configure(background=colors["text_bg"])
 
         width = max(760, canvas.winfo_width())
         height = max(320, canvas.winfo_height())
@@ -978,6 +1105,14 @@ class BMHTextEditor(tk.Tk):
         runtime_color = colors.get("button_active_border", "#3b82f6")
         memory_color = colors.get("input_focus", "#f59e0b")
 
+        canvas.create_text(
+            width / 2,
+            24,
+            text="Performance Comparison",
+            fill=colors["fg"],
+            font=("Segoe UI", 11, "bold"),
+        )
+
         self._draw_metric_chart(
             canvas,
             results,
@@ -990,6 +1125,8 @@ class BMHTextEditor(tk.Tk):
             runtime_color,
             colors["fg"],
             colors["border"],
+            colors["panel"],
+            colors["active"],
         )
         self._draw_metric_chart(
             canvas,
@@ -1003,6 +1140,8 @@ class BMHTextEditor(tk.Tk):
             memory_color,
             colors["fg"],
             colors["border"],
+            colors["panel"],
+            colors["active"],
         )
 
     def _draw_metric_chart(
@@ -1018,6 +1157,8 @@ class BMHTextEditor(tk.Tk):
         bar_color: str,
         text_color: str,
         border_color: str,
+        chart_bg: str,
+        grid_color: str,
     ) -> None:
         values = [float(item[metric_key]) for item in results]
         max_value = max(values) if values else 1.0
@@ -1028,9 +1169,21 @@ class BMHTextEditor(tk.Tk):
             y,
             x + width,
             y + height,
+            fill=chart_bg,
             outline=border_color,
             width=1,
         )
+
+        for i in range(1, 5):
+            y_line = y + int((height / 5) * i)
+            canvas.create_line(
+                x + 1,
+                y_line,
+                x + width - 1,
+                y_line,
+                fill=grid_color,
+            )
+
         canvas.create_text(
             x + width / 2,
             y - 18,
