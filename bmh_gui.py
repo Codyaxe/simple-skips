@@ -897,11 +897,49 @@ class BMHTextEditor(tk.Tk):
             style="PerfSummary.TLabel",
         ).pack(fill=tk.X, padx=12, pady=(10, 6))
 
-        notebook = ttk.Notebook(self.performance_window, style="Perf.TNotebook")
-        notebook.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
+        content_frame = ttk.Frame(self.performance_window, style="Perf.TFrame")
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=12, pady=(0, 12))
 
-        table_frame = ttk.Frame(notebook, style="Perf.TFrame")
-        notebook.add(table_frame, text="Table")
+        tab_bar = tk.Frame(
+            content_frame,
+            bd=0,
+            highlightthickness=0,
+            background=colors["panel"],
+        )
+        tab_bar.pack(fill=tk.X, pady=(0, 6))
+
+        table_tab = tk.Label(
+            tab_bar,
+            text="Table",
+            background=colors["panel"],
+            foreground=colors["fg"],
+            font=("Segoe UI", 9),
+            padx=0,
+            pady=0,
+            bd=0,
+            highlightthickness=0,
+            cursor="arrow",
+        )
+        table_tab.pack(side=tk.LEFT, padx=(0, 16))
+
+        graph_tab = tk.Label(
+            tab_bar,
+            text="Graph",
+            background=colors["panel"],
+            foreground=colors["muted"],
+            font=("Segoe UI", 9),
+            padx=0,
+            pady=0,
+            bd=0,
+            highlightthickness=0,
+            cursor="arrow",
+        )
+        graph_tab.pack(side=tk.LEFT)
+
+        view_container = ttk.Frame(content_frame, style="Perf.TFrame")
+        view_container.pack(fill=tk.BOTH, expand=True)
+
+        table_frame = ttk.Frame(view_container, style="Perf.TFrame")
 
         columns = ("operation", "runtime", "memory", "result")
         tree = ttk.Treeview(
@@ -952,8 +990,7 @@ class BMHTextEditor(tk.Tk):
         tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         table_scroll.pack(side=tk.RIGHT, fill=tk.Y)
 
-        graph_frame = ttk.Frame(notebook, style="Perf.TFrame")
-        notebook.add(graph_frame, text="Graph")
+        graph_frame = ttk.Frame(view_container, style="Perf.TFrame")
 
         graph_canvas = tk.Canvas(
             graph_frame,
@@ -967,6 +1004,23 @@ class BMHTextEditor(tk.Tk):
             self._render_performance_graph(graph_canvas, results)
 
         graph_canvas.bind("<Configure>", _redraw)
+
+        def _show_view(name: str) -> None:
+            if name == "table":
+                graph_frame.pack_forget()
+                table_frame.pack(fill=tk.BOTH, expand=True)
+                table_tab.configure(foreground=colors["fg"])
+                graph_tab.configure(foreground=colors["muted"])
+            else:
+                table_frame.pack_forget()
+                graph_frame.pack(fill=tk.BOTH, expand=True)
+                table_tab.configure(foreground=colors["muted"])
+                graph_tab.configure(foreground=colors["fg"])
+
+        table_tab.bind("<Button-1>", lambda _event: _show_view("table"))
+        graph_tab.bind("<Button-1>", lambda _event: _show_view("graph"))
+
+        _show_view("table")
         self._render_performance_graph(graph_canvas, results)
 
     def _configure_performance_styles(self, colors: Dict[str, str]) -> None:
@@ -982,23 +1036,23 @@ class BMHTextEditor(tk.Tk):
 
         self.style.configure(
             "Perf.TNotebook",
-            background=colors["bg"],
+            background=colors["panel"],
             borderwidth=0,
             relief="flat",
-            bordercolor=colors["bg"],
-            lightcolor=colors["bg"],
-            darkcolor=colors["bg"],
-            tabmargins=(2, 2, 2, 0),
+            bordercolor=colors["panel"],
+            lightcolor=colors["panel"],
+            darkcolor=colors["panel"],
+            tabmargins=(0, 0, 0, 0),
         )
         self.style.configure(
             "Perf.TNotebook.Tab",
             background=colors["panel"],
-            foreground=colors["muted"],
-            padding=(12, 6),
+            foreground=colors["fg"],
+            padding=(10, 4),
             borderwidth=0,
             relief="flat",
-            lightcolor=colors["active"],
-            darkcolor=colors["active"],
+            lightcolor=colors["panel"],
+            darkcolor=colors["panel"],
         )
         self.style.layout(
             "Perf.TNotebook.Tab",
@@ -1028,7 +1082,7 @@ class BMHTextEditor(tk.Tk):
         )
         self.style.map(
             "Perf.TNotebook.Tab",
-            background=[("selected", colors["active"]), ("active", colors["active"])],
+            background=[("selected", colors["panel"]), ("active", colors["panel"])],
             foreground=[("selected", colors["fg"]), ("active", colors["fg"])],
         )
 
