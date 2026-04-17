@@ -904,9 +904,9 @@ class BMHTextEditor(tk.Tk):
             content_frame,
             bd=0,
             highlightthickness=0,
-            background=colors["panel"],
+            background=colors["bg"],
         )
-        tab_bar.pack(fill=tk.X, pady=(0, 6))
+        tab_bar.pack(fill=tk.X, pady=0)
 
         table_tab = tk.Label(
             tab_bar,
@@ -914,13 +914,13 @@ class BMHTextEditor(tk.Tk):
             background=colors["panel"],
             foreground=colors["fg"],
             font=("Segoe UI", 9),
-            padx=0,
-            pady=0,
+            padx=12,
+            pady=6,
             bd=0,
             highlightthickness=0,
             cursor="arrow",
         )
-        table_tab.pack(side=tk.LEFT, padx=(0, 16))
+        table_tab.pack(side=tk.LEFT, padx=(0, 8))
 
         graph_tab = tk.Label(
             tab_bar,
@@ -928,16 +928,16 @@ class BMHTextEditor(tk.Tk):
             background=colors["panel"],
             foreground=colors["muted"],
             font=("Segoe UI", 9),
-            padx=0,
-            pady=0,
+            padx=12,
+            pady=6,
             bd=0,
             highlightthickness=0,
             cursor="arrow",
         )
-        graph_tab.pack(side=tk.LEFT)
+        graph_tab.pack(side=tk.LEFT, padx=(0, 8))
 
         view_container = ttk.Frame(content_frame, style="Perf.TFrame")
-        view_container.pack(fill=tk.BOTH, expand=True)
+        view_container.pack(fill=tk.BOTH, expand=True, pady=0)
 
         table_frame = ttk.Frame(view_container, style="Perf.TFrame")
 
@@ -987,8 +987,8 @@ class BMHTextEditor(tk.Tk):
             style="Minimal.Vertical.TScrollbar",
         )
         tree.configure(yscrollcommand=table_scroll.set)
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        table_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=0, pady=0)
+        table_scroll.pack(side=tk.RIGHT, fill=tk.Y, padx=0, pady=0)
 
         graph_frame = ttk.Frame(view_container, style="Perf.TFrame")
 
