@@ -1,5 +1,8 @@
 # 🔍 Simple Skips Text Editor
 
+<div align="center">
+
+```
  (                                 (                        
  )\ )                    (         )\ )    )                
 (()/( (      )           )\   (   (()/( ( /( (              
@@ -9,7 +12,10 @@
 \__ \ | || '  \()| '_ \)| |/ -_)  \__ \| / / | || '_ \)(_-< 
 |___/ |_||_|_|_| | .__/ |_|\___|  |___/|_\_\ |_|| .__/ /__/ 
                  |_|                            |_|         
-        
+```
+
+</div>
+
 ## 📝 Description
 This project is a Python desktop text editor built with **Tkinter**. It uses the **Boyer-Moore-Horspool (BMH)** string matching algorithm for find/replace and includes an interactive visual trace panel to show exactly how matching works—step by step.
 
