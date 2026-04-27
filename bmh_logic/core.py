@@ -1,7 +1,7 @@
 """Boyer-Moore-Horspool string matching algorithm implementation."""
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, TypeAlias
 
 
 def display_char(char: str) -> str:
@@ -90,13 +90,16 @@ class BMHStep:
     reason: str
 
 
+BMHTraceResult: TypeAlias = Tuple[List[BMHStep], int, Dict[str, int]]
+
+
 def bmh_trace(
     text: str,
     pattern: str,
     start: int = 0,
     stop_on_first_match: bool = True,
     max_steps: int = 250,
-) -> Tuple[List[BMHStep], int, Dict[str, int]]:
+) -> BMHTraceResult:
     """Collect step-by-step BMH states for visualization."""
     if not pattern:
         return [], -1, {}
