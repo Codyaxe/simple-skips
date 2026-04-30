@@ -144,14 +144,14 @@ class PerformanceWindow:
             height=12,
             style="Perf.Treeview",
         )
-        tree.heading("operation", text="Operation")
-        tree.heading("runtime", text="Avg Runtime (ms)")
-        tree.heading("memory", text="Peak Memory (KB)")
-        tree.heading("result", text="Result")
+        tree.heading("operation", text="Operation", anchor=tk.W)
+        tree.heading("runtime", text="Avg Runtime (ms)", anchor=tk.W)
+        tree.heading("memory", text="Peak Memory (KB)", anchor=tk.W)
+        tree.heading("result", text="Result", anchor=tk.W)
 
         tree.column("operation", width=200, anchor=tk.W)
-        tree.column("runtime", width=140, anchor=tk.E)
-        tree.column("memory", width=140, anchor=tk.E)
+        tree.column("runtime", width=140, anchor=tk.W)
+        tree.column("memory", width=140, anchor=tk.W)
         tree.column("result", width=220, anchor=tk.W)
 
         tree.tag_configure(
@@ -173,7 +173,7 @@ class PerformanceWindow:
                 values=(
                     row["operation"],
                     f"{row['runtime_ms']:.4f}",
-                    f"{row['memory_kb']:.2f}",
+                    f"{row['memory_kb']:.4f}",
                     row["result"],
                 ),
                 tags=(row_tag,),
@@ -318,7 +318,7 @@ class PerformanceWindow:
             self.graph_canvas.create_text(
                 left + bar_w / 2,
                 top - 12,
-                text=f"{value:.2f}",
+                text=f"{value:.4f}",
                 fill=self.colors["fg"],
                 font=("Segoe UI", 8),
             )
