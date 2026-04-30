@@ -1,5 +1,7 @@
 """Main application window - orchestrator for all UI components."""
 
+import random
+import string
 import time
 import tracemalloc
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -70,6 +72,7 @@ class BMHTextEditor(tk.Tk):
             "KMP": tk.BooleanVar(value=False),
             "Naive": tk.BooleanVar(value=False),
         }
+        self.test_cases = self._build_test_cases()
 
         # Theme
         self.style = ttk.Style(self)
@@ -200,6 +203,14 @@ class BMHTextEditor(tk.Tk):
             command=self.run_performance_evaluation,
         )
 
+        # Test cases menu
+        self.test_case_menu = DropdownMenu(self)
+        for case in self.test_cases:
+            self.test_case_menu.add_command(
+                label=case["name"],
+                command=lambda item=case: self._load_test_case(item),
+            )
+
         # Algorithm menu
         self.algorithm_menu = DropdownMenu(self)
         for label in self.algorithm_vars:
@@ -212,6 +223,7 @@ class BMHTextEditor(tk.Tk):
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
         self.menu_bar.add_cascade(label="View", menu=self.view_menu)
         self.menu_bar.add_cascade(label="Algorithm", menu=self.algorithm_menu)
+        self.menu_bar.add_cascade(label="Test Cases", menu=self.test_case_menu)
         self.menu_bar.add_cascade(label="Performance", menu=self.performance_menu)
 
         self._bind_shortcuts()
@@ -222,6 +234,104 @@ class BMHTextEditor(tk.Tk):
         self.bind_all("<Control-o>", self._on_shortcut_open)
         self.bind_all("<Control-s>", self._on_shortcut_save)
         self.bind_all("<Control-S>", self._on_shortcut_save_as)
+
+    def _build_test_cases(self) -> List[Dict[str, str]]:
+        """Create a set of small, generic test cases."""
+        cases = [
+            {
+                "name": "Exact match",
+                "text": "hello world",
+                "pattern": "world",
+            },
+            {
+                "name": "No match",
+                "text": "abcdefg",
+                "pattern": "xyz",
+            },
+            {
+                "name": "Multiple matches",
+                "text": "abracadabra abracadabra",
+                "pattern": "abra",
+            },
+            {
+                "name": "Overlapping matches",
+                "text": "aaaaa",
+                "pattern": "aa",
+            },
+            {
+                "name": "Pattern at end",
+                "text": "start middle end",
+                "pattern": "end",
+            },
+            {
+                "name": "Case sensitive",
+                "text": "Case Sensitive case sensitive",
+                "pattern": "case",
+            },
+            {
+                "name": "Whitespace and punctuation",
+                "text": "one, two; three.\nnew line here",
+                "pattern": "two; three",
+            },
+            {
+                "name": "Pattern longer than text",
+                "text": "short",
+                "pattern": "longerpattern",
+            },
+        ]
+
+        rng = random.Random(42)
+        cases.extend(
+            [
+                {
+                    "name": "Large alphabet + long pattern",
+                    "text": "".join(
+                        rng.choices(
+                            string.ascii_letters + string.digits,
+                            k=100_000,
+                        )
+                    ),
+                    "pattern": "xQ7mK9pL2nR8vT4wY6",
+                },
+                {
+                    "name": "Long pattern, no matches",
+                    "text": "the quick brown fox jumps over the lazy dog " * 22728,
+                    "pattern": "cryptographic hash function verification process",
+                },
+                {
+                    "name": "Binary/byte data",
+                    "text": (bytes(range(256)) * 4000).decode("latin-1"),
+                    "pattern": "\xfa\xfb\xfc\xfd\xfe\xff\x01\x02\x03\x04",
+                },
+                {
+                    "name": "Very long pattern, no matches",
+                    "text": "a" * 100_000,
+                    "pattern": "z" * 2000 + "b",
+                },
+                {
+                    "name": "Genomic data",
+                    "text": "".join(rng.choices("ACGT", k=100_000)),
+                    "pattern": "ACGTACGTACGTACGTACGT" * 3,
+                },
+            ]
+        )
+
+        return cases
+
+    def _load_test_case(self, case: Dict[str, str]) -> None:
+        """Load a test case into the editor and Find field."""
+        if not self._confirm_discard_if_needed():
+            return
+
+        self.current_file = None
+        self.editor_panel.set_content(case["text"])
+        self.find_var.set(case["pattern"])
+        self.replace_var.set("")
+        self.is_dirty = False
+        self._update_window_title()
+        self.clear_highlights()
+        self.editor_panel.set_insertion_point(0)
+        self._set_status(f"Loaded test case: {case['name']}.")
 
     def toggle_dark_mode(self) -> None:
         """Toggle dark/light mode."""
