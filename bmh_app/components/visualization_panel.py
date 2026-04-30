@@ -56,11 +56,17 @@ class VisualizationPanel:
         self.step_var = tk.StringVar(value="Step 0/0")
         ttk.Label(parent, textvariable=self.step_var).pack(anchor="w", pady=(0, 6))
 
-        # Visualization text
+        # Visualization + auxiliary table splitter
+        self.splitter = ttk.Panedwindow(parent, orient=tk.VERTICAL)
+        self.splitter.pack(fill=tk.BOTH, expand=True)
+
+        visual_frame = ttk.Frame(self.splitter)
+        aux_frame = ttk.Frame(self.splitter)
+
         self.visual_text = tk.Text(
-            parent, height=16, wrap=tk.NONE, font=("Consolas", 10)
+            visual_frame, height=16, wrap=tk.NONE, font=("Consolas", 10)
         )
-        self.visual_text.pack(fill=tk.BOTH, expand=True, pady=(0, 8))
+        self.visual_text.pack(fill=tk.BOTH, expand=True)
         self.visual_text.tag_configure("viz_align", background="#e8eefc")
         self.visual_text.tag_configure(
             "viz_match", background="#dcfce7", foreground="#166534"
@@ -74,10 +80,15 @@ class VisualizationPanel:
 
         # Auxiliary table
         self.aux_title_var = tk.StringVar(value="Skip Table")
-        ttk.Label(parent, textvariable=self.aux_title_var).pack(anchor="w")
-        self.skip_text = tk.Text(parent, height=8, wrap=tk.WORD, font=("Consolas", 10))
-        self.skip_text.pack(fill=tk.X)
+        ttk.Label(aux_frame, textvariable=self.aux_title_var).pack(anchor="w")
+        self.skip_text = tk.Text(
+            aux_frame, height=8, wrap=tk.WORD, font=("Consolas", 10)
+        )
+        self.skip_text.pack(fill=tk.BOTH, expand=True)
         self.skip_text.configure(state=tk.DISABLED)
+
+        self.splitter.add(visual_frame, weight=7)
+        self.splitter.add(aux_frame, weight=3)
 
     def set_callback(self, name: str, callback: Callable[[], None]) -> None:
         """Register callback for button action."""

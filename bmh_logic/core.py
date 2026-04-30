@@ -616,7 +616,10 @@ def bm_trace(
     return (
         steps,
         first_match,
-        {"title": "BM Tables", "rows": _build_bm_table_rows(pattern, bad_char, good_suffix)},
+        {
+            "title": "BM Tables",
+            "rows": _build_bm_table_rows(pattern, bad_char, good_suffix),
+        },
     )
 
 
@@ -829,9 +832,7 @@ def naive_trace(
             alignment += 1
             continue
 
-        reason = (
-            f"Mismatch at text[{alignment + j}] and pattern[{j}]. Shift by 1."
-        )
+        reason = f"Mismatch at text[{alignment + j}] and pattern[{j}]. Shift by 1."
         steps.append(
             BMHStep(
                 alignment=alignment,

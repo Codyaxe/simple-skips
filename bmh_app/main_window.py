@@ -117,7 +117,9 @@ class BMHTextEditor(tk.Tk):
         self.editor = self.editor_panel.editor
 
         # Visualization panel
-        self.viz_frame = ttk.LabelFrame(self.split, text="Algorithm Visualization", padding=8)
+        self.viz_frame = ttk.LabelFrame(
+            self.split, text="Algorithm Visualization", padding=8
+        )
         self.split.add(self.viz_frame, weight=2)
         self.viz_panel = VisualizationPanel(self.viz_frame, self.theme_manager)
         self.visual_text = self.viz_panel.visual_text
@@ -402,7 +404,7 @@ class BMHTextEditor(tk.Tk):
 
         self.clear_highlights()
         content = self.editor_panel.get_content()
-        matches = self._get_find_all()(content, pattern, allow_overlap=True)
+        matches = self._get_find_all()(content, pattern, True)
 
         for index in matches:
             self.editor_panel.highlight_range(
@@ -456,7 +458,7 @@ class BMHTextEditor(tk.Tk):
             return
 
         original = self.editor_panel.get_content()
-        matches = self._get_find_all()(original, pattern, allow_overlap=False)
+        matches = self._get_find_all()(original, pattern, False)
 
         if not matches:
             self._set_status("No matches found to replace.")
@@ -519,7 +521,7 @@ class BMHTextEditor(tk.Tk):
         )
         trace_start = 0 if fallback_to_start else cursor_start
 
-        steps, first_match, aux_table = self._get_trace()( 
+        steps, first_match, aux_table = self._get_trace()(
             text=text,
             pattern=pattern,
             start=trace_start,
@@ -835,7 +837,10 @@ class BMHTextEditor(tk.Tk):
             ("KMP Search", lambda: kmp_search(text, pattern, 0)),
             ("KMP Find All", lambda: kmp_find_all(text, pattern, allow_overlap=True)),
             ("Naive Search", lambda: naive_search(text, pattern, 0)),
-            ("Naive Find All", lambda: naive_find_all(text, pattern, allow_overlap=True)),
+            (
+                "Naive Find All",
+                lambda: naive_find_all(text, pattern, allow_overlap=True),
+            ),
         ]
 
         results: List[Dict[str, Any]] = []
