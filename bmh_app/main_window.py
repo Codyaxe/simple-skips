@@ -9,11 +9,19 @@ from tkinter import filedialog, messagebox, ttk
 
 from bmh_logic import (
     BMHStep,
+    bm_find_all,
+    bm_search,
+    bm_trace,
     bmh_find_all,
     bmh_search,
     bmh_trace,
-    build_skip_table,
     display_char,
+    kmp_find_all,
+    kmp_search,
+    kmp_trace,
+    naive_find_all,
+    naive_search,
+    naive_trace,
     visual_char,
 )
 
@@ -55,6 +63,13 @@ class BMHTextEditor(tk.Tk):
         self.replace_var = tk.StringVar()
         self.dark_mode_var = tk.BooleanVar(value=False)
         self.show_visualization_var = tk.BooleanVar(value=True)
+        self.algorithm_var = tk.StringVar(value="BMH")
+        self.algorithm_vars: Dict[str, tk.BooleanVar] = {
+            "BMH": tk.BooleanVar(value=True),
+            "Boyer-Moore": tk.BooleanVar(value=False),
+            "KMP": tk.BooleanVar(value=False),
+            "Naive": tk.BooleanVar(value=False),
+        }
 
         # Theme
         self.style = ttk.Style(self)
@@ -75,6 +90,7 @@ class BMHTextEditor(tk.Tk):
         self._build_ui()
         self._build_menu()
         self._apply_theme()
+        self._update_algorithm_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self) -> None:
@@ -101,7 +117,7 @@ class BMHTextEditor(tk.Tk):
         self.editor = self.editor_panel.editor
 
         # Visualization panel
-        self.viz_frame = ttk.LabelFrame(self.split, text="BMH Visualization", padding=8)
+        self.viz_frame = ttk.LabelFrame(self.split, text="Algorithm Visualization", padding=8)
         self.split.add(self.viz_frame, weight=2)
         self.viz_panel = VisualizationPanel(self.viz_frame, self.theme_manager)
         self.visual_text = self.viz_panel.visual_text
@@ -182,8 +198,18 @@ class BMHTextEditor(tk.Tk):
             command=self.run_performance_evaluation,
         )
 
+        # Algorithm menu
+        self.algorithm_menu = DropdownMenu(self)
+        for label in self.algorithm_vars:
+            self.algorithm_menu.add_checkbutton(
+                label=label,
+                variable=self.algorithm_vars[label],
+                command=lambda name=label: self._set_algorithm(name),
+            )
+
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
         self.menu_bar.add_cascade(label="View", menu=self.view_menu)
+        self.menu_bar.add_cascade(label="Algorithm", menu=self.algorithm_menu)
         self.menu_bar.add_cascade(label="Performance", menu=self.performance_menu)
 
         self._bind_shortcuts()
@@ -208,6 +234,22 @@ class BMHTextEditor(tk.Tk):
             if str(self.viz_frame) in self.split.panes():
                 self._cancel_animation()
                 self.split.forget(self.viz_frame)
+
+    def _set_algorithm(self, name: str) -> None:
+        """Set the active algorithm and update UI state."""
+        if name not in self.algorithm_vars:
+            return
+        self.algorithm_var.set(name)
+        for algo, var in self.algorithm_vars.items():
+            var.set(algo == name)
+        self._update_algorithm_ui()
+        self._set_status(f"Algorithm set to {name}.")
+        self.menu_bar.close_all()
+
+    def _update_algorithm_ui(self) -> None:
+        """Refresh labels that depend on the active algorithm."""
+        algo = self.algorithm_var.get()
+        self.viz_frame.configure(text=f"{algo} Visualization")
 
     def _apply_theme(self) -> None:
         """Apply current theme to all components."""
@@ -360,7 +402,7 @@ class BMHTextEditor(tk.Tk):
 
         self.clear_highlights()
         content = self.editor_panel.get_content()
-        matches = bmh_find_all(content, pattern, allow_overlap=True)
+        matches = self._get_find_all()(content, pattern, allow_overlap=True)
 
         for index in matches:
             self.editor_panel.highlight_range(
@@ -414,7 +456,7 @@ class BMHTextEditor(tk.Tk):
             return
 
         original = self.editor_panel.get_content()
-        matches = bmh_find_all(original, pattern, allow_overlap=False)
+        matches = self._get_find_all()(original, pattern, allow_overlap=False)
 
         if not matches:
             self._set_status("No matches found to replace.")
@@ -445,11 +487,11 @@ class BMHTextEditor(tk.Tk):
     def _find_next_from(self, pattern: str, start_offset: int) -> Tuple[int, bool]:
         """Find next occurrence from offset."""
         content = self.editor_panel.get_content()
-        index = bmh_search(content, pattern, start_offset)
+        index = self._get_search()(content, pattern, start_offset)
         wrapped = False
 
         if index == -1 and start_offset > 0:
-            index = bmh_search(content, pattern, 0)
+            index = self._get_search()(content, pattern, 0)
             wrapped = index != -1
 
         return index, wrapped
@@ -464,7 +506,7 @@ class BMHTextEditor(tk.Tk):
 
         text = self.editor_panel.get_content()
         if not text:
-            self._set_status("Editor is empty. Add text to visualize BMH.")
+            self._set_status("Editor is empty. Add text to visualize the algorithm.")
             return
 
         cursor_start = self.editor_panel.get_cursor_offset()
@@ -477,7 +519,7 @@ class BMHTextEditor(tk.Tk):
         )
         trace_start = 0 if fallback_to_start else cursor_start
 
-        steps, first_match, _skip = bmh_trace(
+        steps, first_match, aux_table = self._get_trace()( 
             text=text,
             pattern=pattern,
             start=trace_start,
@@ -490,7 +532,7 @@ class BMHTextEditor(tk.Tk):
             self.trace_text = text
             self.trace_pattern = pattern
             self.viz_panel.set_step_text(0, 0)
-            self._render_skip_table(pattern)
+            self._render_aux_table(aux_table)
             self.viz_panel.set_visual_content("No steps available for this input.")
             self._set_status("Trace could not be generated.")
             return
@@ -499,7 +541,7 @@ class BMHTextEditor(tk.Tk):
         self.trace_step_index = 0
         self.trace_text = text
         self.trace_pattern = pattern
-        self._render_skip_table(pattern)
+        self._render_aux_table(aux_table)
         self._render_trace_step()
 
         if first_match == -1:
@@ -748,21 +790,16 @@ class BMHTextEditor(tk.Tk):
 
     def _render_skip_table(self, pattern: str) -> None:
         """Render skip table visualization."""
-        if not pattern:
-            self.viz_panel.set_skip_table("No pattern set.")
+        self._render_aux_table({"title": "Skip Table", "rows": ["No pattern set."]})
+
+    def _render_aux_table(self, aux_table: Dict[str, Any]) -> None:
+        """Render auxiliary table visualization."""
+        title = aux_table.get("title", "Aux Table")
+        rows = aux_table.get("rows")
+        if not rows:
+            self.viz_panel.set_aux_table(title, "No auxiliary data.")
             return
-
-        table = build_skip_table(pattern)
-        rows = [f"Default shift: {len(pattern)}"]
-
-        if table:
-            rows.append("Custom shifts:")
-            for char in sorted(table.keys()):
-                rows.append(f"  '{display_char(char)}' -> {table[char]}")
-        else:
-            rows.append("Pattern length is 1, so only default shift is used.")
-
-        self.viz_panel.set_skip_table("\n".join(rows))
+        self.viz_panel.set_aux_table(title, "\n".join(rows))
 
     def run_performance_evaluation(self) -> None:
         """Run performance evaluation."""
@@ -789,10 +826,16 @@ class BMHTextEditor(tk.Tk):
 
         operations: List[Tuple[str, Callable[[], Any]]] = [
             ("BMH Search", lambda: bmh_search(text, pattern, 0)),
+            ("BMH Find All", lambda: bmh_find_all(text, pattern, allow_overlap=True)),
+            ("Boyer-Moore Search", lambda: bm_search(text, pattern, 0)),
             (
-                "BMH Find All",
-                lambda: bmh_find_all(text, pattern, allow_overlap=True),
+                "Boyer-Moore Find All",
+                lambda: bm_find_all(text, pattern, allow_overlap=True),
             ),
+            ("KMP Search", lambda: kmp_search(text, pattern, 0)),
+            ("KMP Find All", lambda: kmp_find_all(text, pattern, allow_overlap=True)),
+            ("Naive Search", lambda: naive_search(text, pattern, 0)),
+            ("Naive Find All", lambda: naive_find_all(text, pattern, allow_overlap=True)),
         ]
 
         results: List[Dict[str, Any]] = []
@@ -863,6 +906,33 @@ class BMHTextEditor(tk.Tk):
         if isinstance(result, list):
             return f"{len(result)} matches"
         return str(result)
+
+    def _get_search(self) -> Callable[[str, str, int], int]:
+        """Get selected algorithm search function."""
+        return {
+            "BMH": bmh_search,
+            "Boyer-Moore": bm_search,
+            "KMP": kmp_search,
+            "Naive": naive_search,
+        }[self.algorithm_var.get()]
+
+    def _get_find_all(self) -> Callable[[str, str, bool], List[int]]:
+        """Get selected algorithm find-all function."""
+        return {
+            "BMH": bmh_find_all,
+            "Boyer-Moore": bm_find_all,
+            "KMP": kmp_find_all,
+            "Naive": naive_find_all,
+        }[self.algorithm_var.get()]
+
+    def _get_trace(self) -> Callable[..., Tuple[List[BMHStep], int, Dict[str, Any]]]:
+        """Get selected algorithm trace function."""
+        return {
+            "BMH": bmh_trace,
+            "Boyer-Moore": bm_trace,
+            "KMP": kmp_trace,
+            "Naive": naive_trace,
+        }[self.algorithm_var.get()]
 
     def _on_shortcut_new(self, _event: tk.Event) -> str:
         self.new_file()

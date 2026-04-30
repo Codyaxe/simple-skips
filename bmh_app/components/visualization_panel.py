@@ -1,4 +1,4 @@
-"""Visualization panel component - BMH trace rendering."""
+"""Visualization panel component - algorithm trace rendering."""
 
 from typing import Callable, Dict, List
 
@@ -9,7 +9,7 @@ from ..core.theme_manager import ThemeManager
 
 
 class VisualizationPanel:
-    """BMH algorithm visualization and skip table display."""
+    """Algorithm visualization and auxiliary table display."""
 
     def __init__(self, parent: ttk.LabelFrame, theme: ThemeManager) -> None:
         """Initialize visualization panel."""
@@ -72,8 +72,9 @@ class VisualizationPanel:
         self.visual_text.tag_configure("viz_result_mismatch", foreground="#991b1b")
         self.visual_text.configure(state=tk.DISABLED)
 
-        # Skip table
-        ttk.Label(parent, text="Skip Table").pack(anchor="w")
+        # Auxiliary table
+        self.aux_title_var = tk.StringVar(value="Skip Table")
+        ttk.Label(parent, textvariable=self.aux_title_var).pack(anchor="w")
         self.skip_text = tk.Text(parent, height=8, wrap=tk.WORD, font=("Consolas", 10))
         self.skip_text.pack(fill=tk.X)
         self.skip_text.configure(state=tk.DISABLED)
@@ -113,6 +114,11 @@ class VisualizationPanel:
 
     def set_skip_table(self, content: str) -> None:
         """Update skip table content."""
+        self._set_readonly_text(self.skip_text, content)
+
+    def set_aux_table(self, title: str, content: str) -> None:
+        """Update auxiliary table title/content."""
+        self.aux_title_var.set(title)
         self._set_readonly_text(self.skip_text, content)
 
     def update_play_button(self, is_animating: bool) -> None:
