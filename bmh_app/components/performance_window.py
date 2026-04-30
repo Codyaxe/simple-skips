@@ -3,6 +3,7 @@
 from typing import Any, Dict, List
 
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk
 
 from ..core.theme_manager import ThemeManager
@@ -34,6 +35,8 @@ class PerformanceWindow:
         self.window.geometry("920x560")
         self.window.minsize(760, 480)
         self.window.configure(bg=colors["bg"])
+
+        self.label_font = tkfont.Font(family="Segoe UI", size=8)
 
         self._configure_styles()
         self._build_ui(text_len, pattern_len, iterations)
@@ -319,11 +322,41 @@ class PerformanceWindow:
                 fill=self.colors["fg"],
                 font=("Segoe UI", 8),
             )
-            self.graph_canvas.create_text(
-                left + bar_w / 2,
-                y + height + 14,
-                text=item["operation"],
-                fill=self.colors["fg"],
-                font=("Segoe UI", 8),
-                width=max(70, int(slot_w) - 8),
-            )
+            max_label_width = max(40, int(slot_w) - 8)
+            label_text = item["operation"]
+
+            if max_label_width < 70:
+                label_text = self._truncate_label(label_text, max_label_width)
+                self.graph_canvas.create_text(
+                    left + bar_w / 2,
+                    y + height + 14,
+                    text=label_text,
+                    fill=self.colors["fg"],
+                    font=self.label_font,
+                )
+            else:
+                self.graph_canvas.create_text(
+                    left + bar_w / 2,
+                    y + height + 14,
+                    text=label_text,
+                    fill=self.colors["fg"],
+                    font=self.label_font,
+                    width=max_label_width,
+                )
+
+    def _truncate_label(self, text: str, max_px: int) -> str:
+        """Truncate labels when the bar slot is too narrow for wrapping."""
+        if max_px <= 0:
+            return ""
+
+        ellipsis = "..."
+        if self.label_font.measure(text) <= max_px:
+            return text
+        if self.label_font.measure(ellipsis) >= max_px:
+            return ellipsis
+
+        trimmed = text
+        while trimmed and self.label_font.measure(trimmed + ellipsis) > max_px:
+            trimmed = trimmed[:-1]
+
+        return trimmed + ellipsis
